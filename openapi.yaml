@@ -1,0 +1,1591 @@
+openapi: 3.0.3
+
+info:
+  title: 'ProfIT API'
+  description: 'Единый документ REST API системы ProfIT. Самодостаточный, без внешних ссылок.'
+  version: '1.0'
+
+servers:
+  - url: https://api.profit.local/admin/v1
+    description: Admin API
+  - url: https://api.profit.local/public/v1
+    description: Public API
+
+tags:
+  - name: Auth
+  - name: Tournaments
+  - name: GameSessions
+  - name: GameRounds
+  - name: GameTurns
+  - name: OnlineTests
+  - name: PromoCodes
+  - name: Products
+  - name: Reports
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Аутентификация сотрудника
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              login: regina
+              password: secret
+      responses:
+        '200':
+          description: Успешная аутентификация.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tournaments:
+    get:
+      tags: [Tournaments]
+      summary: Список турниров
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/TournamentStatus'
+      responses:
+        '200':
+          description: Список турниров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TournamentListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [Tournaments]
+      summary: Создать турнир
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTournamentData'
+            example:
+              name: 'Крокодил: зимний кубок'
+              heldAt: '2026-10-15T18:00:00Z'
+              productId: '123e4567-e89b-12d3-a456-426655440000'
+      responses:
+        '201':
+          description: Турнир создан.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TournamentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tournaments/{tournamentId}:
+    parameters:
+      - $ref: '#/components/parameters/TournamentId'
+    get:
+      tags: [Tournaments]
+      summary: Данные турнира
+      responses:
+        '200':
+          description: Данные турнира.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TournamentResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tournaments/{tournamentId}/sessions:
+    parameters:
+      - $ref: '#/components/parameters/TournamentId'
+    post:
+      tags: [GameSessions]
+      summary: Создать игровую сессию
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameSessionData'
+            example:
+              participantIds:
+                - '11111111-1111-1111-1111-111111111111'
+                - '22222222-2222-2222-2222-222222222222'
+      responses:
+        '201':
+          description: Сессия создана.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameSessionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /sessions/{sessionId}:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    get:
+      tags: [GameSessions]
+      summary: Данные сессии
+      responses:
+        '200':
+          description: Данные сессии.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameSessionResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /sessions/{sessionId}/participants:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      tags: [GameSessions]
+      summary: Добавить участника до старта сессии
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddParticipantData'
+            example:
+              name: Регина
+              email: regina@example.com
+      responses:
+        '201':
+          description: Участник добавлен.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionParticipantResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /sessions/{sessionId}/start:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    patch:
+      tags: [GameSessions]
+      summary: Запустить сессию
+      responses:
+        '204':
+          description: Сессия запущена.
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /sessions/{sessionId}/finish:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    patch:
+      tags: [GameSessions]
+      summary: Завершить сессию и зафиксировать победителя
+      responses:
+        '200':
+          description: Сессия завершена.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameSessionResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /sessions/{sessionId}/rounds:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      tags: [GameRounds]
+      summary: Создать раунд в активной сессии
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameRoundData'
+            example:
+              number: 1
+      responses:
+        '201':
+          description: Раунд создан.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameRoundResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rounds/{roundId}/turns:
+    parameters:
+      - $ref: '#/components/parameters/RoundId'
+    post:
+      tags: [GameTurns]
+      summary: Зафиксировать игровой ход
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGameTurnData'
+            example:
+              explainerParticipantId: '11111111-1111-1111-1111-111111111111'
+              guesserParticipantId: '22222222-2222-2222-2222-222222222222'
+              wordId: '33333333-3333-3333-3333-333333333333'
+              representationMethod: Пантомима
+              guessed: true
+      responses:
+        '201':
+          description: Ход зафиксирован.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameTurnResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /tests:
+    get:
+      tags: [OnlineTests]
+      summary: Список онлайн-тестов
+      responses:
+        '200':
+          description: Список тестов.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnlineTestListResponse'
+    post:
+      tags: [OnlineTests]
+      summary: Создать онлайн-тест
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOnlineTestData'
+            example:
+              name: 'Тест о настольных играх'
+      responses:
+        '201':
+          description: Тест создан.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnlineTestResponse'
+
+  /tests/{testId}/versions:
+    parameters:
+      - $ref: '#/components/parameters/TestId'
+    post:
+      tags: [OnlineTests]
+      summary: Создать черновую версию теста
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTestVersionData'
+            example:
+              successThreshold: 3
+      responses:
+        '201':
+          description: Версия создана.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestVersionResponse'
+
+  /versions/{versionId}/publish:
+    parameters:
+      - $ref: '#/components/parameters/VersionId'
+    patch:
+      tags: [OnlineTests]
+      summary: Опубликовать версию теста
+      responses:
+        '204':
+          description: Версия опубликована.
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /promocodes:
+    get:
+      tags: [PromoCodes]
+      summary: Поиск промокодов
+      parameters:
+        - name: code
+          in: query
+          schema:
+            type: string
+            maxLength: 255
+        - name: recipientEmail
+          in: query
+          schema:
+            type: string
+            format: email
+            maxLength: 255
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: Список промокодов.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromoCodeListResponse'
+
+  /promocodes/{promoCodeId}:
+    parameters:
+      - $ref: '#/components/parameters/PromoCodeId'
+    get:
+      tags: [PromoCodes]
+      summary: Детали промокода
+      responses:
+        '200':
+          description: Детали промокода.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromoCodeResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /promocodes/{promoCodeId}/send:
+    parameters:
+      - $ref: '#/components/parameters/PromoCodeId'
+    post:
+      tags: [PromoCodes]
+      summary: Инициировать отправку промокода
+      responses:
+        '202':
+          description: Отправка инициирована.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromoSendAttemptResponse'
+
+  /promocodes/{promoCodeId}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/PromoCodeId'
+    post:
+      tags: [PromoCodes]
+      summary: Отменить промокод
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelPromoCodeData'
+            example:
+              reason: 'Подозрение на злоупотребление'
+      responses:
+        '204':
+          description: Промокод отменён.
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /products:
+    get:
+      tags: [Products]
+      summary: Административный список товаров
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - name: published
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Список товаров.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+    post:
+      tags: [Products]
+      summary: Создать карточку товара
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductData'
+            example:
+              name: 'Крокодил: детская версия'
+              description: 'Настольная игра для детей от 6 лет.'
+              price: 1490.00
+              theme: 'Животные'
+              productGroupId: '44444444-4444-4444-4444-444444444444'
+              published: true
+      responses:
+        '201':
+          description: Товар создан.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+
+  /products/{productId}:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+    patch:
+      tags: [Products]
+      summary: Обновить товар
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductData'
+      responses:
+        '204':
+          description: Товар обновлён.
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /reports/promocodes/statuses:
+    get:
+      tags: [Reports]
+      summary: Отчёт по статусам промокодов за период
+      parameters:
+        - name: dateFrom
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: dateTo
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: source
+          in: query
+          schema:
+            $ref: '#/components/schemas/PromoSource'
+      responses:
+        '200':
+          description: Отчёт.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromoStatusReportResponse'
+
+  /reports/promocodes/cohorts:
+    get:
+      tags: [Reports]
+      summary: Когортные показатели активации промокодов
+      parameters:
+        - name: periodFrom
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: periodTo
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: source
+          in: query
+          schema:
+            $ref: '#/components/schemas/PromoSource'
+      responses:
+        '200':
+          description: Когортный отчёт.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromoCohortReportResponse'
+
+  /public/products:
+    get:
+      tags: [Products]
+      summary: Публичный каталог
+      parameters:
+        - $ref: '#/components/parameters/locale'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: Публичный каталог.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductListResponse'
+
+  /public/tests:
+    get:
+      tags: [OnlineTests]
+      summary: Публичный список тестов
+      responses:
+        '200':
+          description: Публичный список тестов.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OnlineTestListResponse'
+
+  /public/test-attempts:
+    post:
+      tags: [OnlineTests]
+      summary: Начать попытку прохождения теста
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartTestAttemptData'
+            example:
+              versionId: '55555555-5555-5555-5555-555555555555'
+      responses:
+        '201':
+          description: Попытка создана.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestAttemptResponse'
+
+  /public/test-attempts/{attemptId}/answers:
+    parameters:
+      - $ref: '#/components/parameters/AttemptId'
+    post:
+      tags: [OnlineTests]
+      summary: Ответить на вопрос
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitAnswerData'
+            example:
+              questionId: '66666666-6666-6666-6666-666666666666'
+              answerOptionId: '77777777-7777-7777-7777-777777777777'
+      responses:
+        '204':
+          description: Ответ зафиксирован.
+
+  /public/test-attempts/{attemptId}/finish:
+    parameters:
+      - $ref: '#/components/parameters/AttemptId'
+    post:
+      tags: [OnlineTests]
+      summary: Завершить попытку и получить результат
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinishTestAttemptData'
+            example:
+              email: user@example.com
+      responses:
+        '200':
+          description: Результат попытки.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestAttemptResultResponse'
+
+  /public/promocodes/validate:
+    post:
+      tags: [PromoCodes]
+      summary: Проверить промокод к товару
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidatePromoCodeData'
+            example:
+              code: PROFIT-ABC-123
+              productId: '123e4567-e89b-12d3-a456-426655440000'
+      responses:
+        '200':
+          description: Результат проверки.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromoCodeValidationResponse'
+
+  /public/promocodes/activate:
+    post:
+      tags: [PromoCodes]
+      summary: Активировать промокод при покупке
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivatePromoCodeData'
+            example:
+              code: PROFIT-ABC-123
+              purchaseId: '88888888-8888-8888-8888-888888888888'
+              finalAmount: 1341.00
+      responses:
+        '200':
+          description: Промокод активирован.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromoCodeActivationResponse'
+
+components:
+  parameters:
+    limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 1000
+        default: 10
+    offset:
+      name: offset
+      in: query
+      required: false
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+    locale:
+      name: Accept-Language
+      in: header
+      required: false
+      schema:
+        type: string
+        pattern: '^[a-z]{2}-[A-Z]{2}$'
+        example: ru-RU
+    TournamentId:
+      name: tournamentId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UUID'
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UUID'
+    RoundId:
+      name: roundId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UUID'
+    TestId:
+      name: testId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UUID'
+    VersionId:
+      name: versionId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UUID'
+    AttemptId:
+      name: attemptId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UUID'
+    PromoCodeId:
+      name: promoCodeId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UUID'
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UUID'
+
+  responses:
+    BadRequest:
+      description: Запрос некорректен или не проходит валидацию.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: 'about:blank'
+            title: 'Ошибка валидации запроса'
+            status: '400'
+            detail: 'Один или несколько параметров запроса не прошли валидацию.'
+            violations:
+              - code: 'VALIDATION_ERROR'
+                field: 'someField'
+                detail: 'Значение поля не соответствует требованиям.'
+
+    Unauthorized:
+      description: Требуется аутентификация.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: 'about:blank'
+            title: 'Не аутентифицирован'
+            status: '401'
+            detail: 'Отсутствует или истёк токен доступа.'
+
+    Forbidden:
+      description: Недостаточно прав для выполнения операции.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: 'about:blank'
+            title: 'Доступ запрещён'
+            status: '403'
+            detail: 'Операция недоступна для текущей роли.'
+
+    NotFound:
+      description: Ресурс не найден.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: 'about:blank'
+            title: 'Ресурс не найден'
+            status: '404'
+            detail: 'Запрошенный ресурс не существует.'
+
+    Conflict:
+      description: Конфликт состояния ресурса.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: 'about:blank'
+            title: 'Конфликт состояния'
+            status: '409'
+            detail: 'Операция не может быть выполнена в текущем состоянии ресурса.'
+
+    InternalServerError:
+      description: Внутренняя ошибка сервера.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemResponse'
+          example:
+            type: 'about:blank'
+            title: 'Внутренняя ошибка сервера'
+            status: '500'
+            detail: 'Не удалось обработать запрос.'
+
+  schemas:
+    UUID:
+      type: string
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      example: '123e4567-e89b-12d3-a456-426655440000'
+
+    PaginationData:
+      type: object
+      properties:
+        limit:
+          type: integer
+          format: int32
+          minimum: 1
+          example: 25
+        offset:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 0
+        totalCount:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 252
+      required: [limit, offset, totalCount]
+
+    ViolationData:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 255
+          example: 'VALIDATION_ERROR'
+        field:
+          type: string
+          maxLength: 255
+          example: 'someField'
+        detail:
+          type: string
+          maxLength: 65535
+          example: 'Значение поля не соответствует требованиям.'
+      required: [code]
+
+    ProblemResponse:
+      description: Problem details serialized according to RFC 7807.
+      type: object
+      properties:
+        type:
+          type: string
+          maxLength: 2048
+          example: 'about:blank'
+        title:
+          type: string
+          maxLength: 255
+          example: 'Ошибка валидации запроса'
+        status:
+          type: string
+          pattern: '^[0-9]{3}$'
+        detail:
+          type: string
+          maxLength: 65535
+        violations:
+          type: array
+          items:
+            $ref: '#/components/schemas/ViolationData'
+      required: [type, title, status, detail]
+
+    LoginRequest:
+      type: object
+      properties:
+        login:
+          type: string
+          maxLength: 255
+        password:
+          type: string
+          maxLength: 255
+      required: [login, password]
+
+    Role:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+          enum: [Сотрудник, Владелец]
+      required: [id, name]
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        expiresIn:
+          type: integer
+        role:
+          $ref: '#/components/schemas/Role'
+      required: [token, expiresIn, role]
+
+    TournamentStatus:
+      type: string
+      enum: [Планируется, Идёт, Завершён]
+
+    Tournament:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+          maxLength: 255
+        heldAt:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/TournamentStatus'
+        productId:
+          $ref: '#/components/schemas/UUID'
+      required: [id, name, heldAt, status, productId]
+
+    UpdateTournamentData:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        heldAt:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/TournamentStatus'
+        productId:
+          $ref: '#/components/schemas/UUID'
+
+    TournamentResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Tournament'
+      required: [data]
+
+    TournamentListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tournament'
+        meta:
+          type: object
+          properties:
+            pagination:
+              $ref: '#/components/schemas/PaginationData'
+          required: [pagination]
+      required: [data, meta]
+
+    GameSessionStatus:
+      type: string
+      enum: [Черновик, Идёт, Завершена]
+
+    GameSession:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        tournamentId:
+          $ref: '#/components/schemas/UUID'
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          $ref: '#/components/schemas/GameSessionStatus'
+        winnerParticipantId:
+          $ref: '#/components/schemas/UUID'
+          nullable: true
+      required: [id, tournamentId, status]
+
+    CreateGameSessionData:
+      type: object
+      properties:
+        participantIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/UUID'
+
+    GameSessionResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/GameSession'
+      required: [data]
+
+    SessionParticipant:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          maxLength: 255
+      required: [id, name, email]
+
+    AddParticipantData:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+          maxLength: 255
+      required: [name, email]
+
+    SessionParticipantResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/SessionParticipant'
+      required: [data]
+
+    GameRoundStatus:
+      type: string
+      enum: [Черновик, Идёт, Завершён]
+
+    GameRound:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        sessionId:
+          $ref: '#/components/schemas/UUID'
+        number:
+          type: integer
+        status:
+          $ref: '#/components/schemas/GameRoundStatus'
+        winnerParticipantId:
+          $ref: '#/components/schemas/UUID'
+          nullable: true
+      required: [id, sessionId, number, status]
+
+    CreateGameRoundData:
+      type: object
+      properties:
+        number:
+          type: integer
+
+    GameRoundResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/GameRound'
+      required: [data]
+
+    RepresentationMethod:
+      type: string
+      enum: [Пантомима, Рисунок, Объяснение_словами]
+
+    GameTurn:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        roundId:
+          $ref: '#/components/schemas/UUID'
+        explainerParticipantId:
+          $ref: '#/components/schemas/UUID'
+        guesserParticipantId:
+          $ref: '#/components/schemas/UUID'
+          nullable: true
+        wordId:
+          $ref: '#/components/schemas/UUID'
+        representationMethod:
+          $ref: '#/components/schemas/RepresentationMethod'
+        guessed:
+          type: boolean
+        explainerPoints:
+          type: integer
+        guesserPoints:
+          type: integer
+      required:
+        - id
+        - roundId
+        - explainerParticipantId
+        - wordId
+        - representationMethod
+        - guessed
+        - explainerPoints
+        - guesserPoints
+
+    CreateGameTurnData:
+      type: object
+      properties:
+        explainerParticipantId:
+          $ref: '#/components/schemas/UUID'
+        guesserParticipantId:
+          $ref: '#/components/schemas/UUID'
+        wordId:
+          $ref: '#/components/schemas/UUID'
+        representationMethod:
+          $ref: '#/components/schemas/RepresentationMethod'
+        guessed:
+          type: boolean
+      required: [explainerParticipantId, wordId, representationMethod, guessed]
+
+    GameTurnResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/GameTurn'
+      required: [data]
+
+    OnlineTest:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+          maxLength: 255
+      required: [id, name]
+
+    UpdateOnlineTestData:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+      required: [name]
+
+    OnlineTestResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/OnlineTest'
+      required: [data]
+
+    OnlineTestListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OnlineTest'
+      required: [data]
+
+    TestVersionStatus:
+      type: string
+      enum: [Черновик, Опубликована, Архивная]
+
+    TestVersion:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        testId:
+          $ref: '#/components/schemas/UUID'
+        versionNumber:
+          type: integer
+        status:
+          $ref: '#/components/schemas/TestVersionStatus'
+        successThreshold:
+          type: integer
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required: [id, testId, versionNumber, status, successThreshold]
+
+    CreateTestVersionData:
+      type: object
+      properties:
+        successThreshold:
+          type: integer
+      required: [successThreshold]
+
+    TestVersionResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/TestVersion'
+      required: [data]
+
+    StartTestAttemptData:
+      type: object
+      properties:
+        versionId:
+          $ref: '#/components/schemas/UUID'
+      required: [versionId]
+
+    TestAttempt:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        versionId:
+          $ref: '#/components/schemas/UUID'
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        score:
+          type: integer
+          nullable: true
+        successful:
+          type: boolean
+          nullable: true
+      required: [id, versionId, startedAt]
+
+    TestAttemptResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/TestAttempt'
+      required: [data]
+
+    SubmitAnswerData:
+      type: object
+      properties:
+        questionId:
+          $ref: '#/components/schemas/UUID'
+        answerOptionId:
+          $ref: '#/components/schemas/UUID'
+      required: [questionId, answerOptionId]
+
+    FinishTestAttemptData:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+      required: [email]
+
+    TestAttemptResult:
+      type: object
+      properties:
+        attempt:
+          $ref: '#/components/schemas/TestAttempt'
+        promoCodeId:
+          $ref: '#/components/schemas/UUID'
+          nullable: true
+      required: [attempt]
+
+    TestAttemptResultResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/TestAttemptResult'
+      required: [data]
+
+    PromoStatus:
+      type: string
+      enum: [Создан, Доступен_к_активации, Активирован, Отменён, Аннулирован]
+
+    PromoSource:
+      type: string
+      enum: [Игра, Тест]
+
+    DeliveryStatus:
+      type: string
+      enum: [Создана, Отправлена, Доставлена, Ошибка]
+
+    PromoCode:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        code:
+          type: string
+          maxLength: 255
+        recipientEmail:
+          type: string
+          format: email
+          maxLength: 255
+        source:
+          $ref: '#/components/schemas/PromoSource'
+        status:
+          $ref: '#/components/schemas/PromoStatus'
+        productGroupId:
+          $ref: '#/components/schemas/UUID'
+        discountPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+        validityDays:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        sentAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        activatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+        annulledAt:
+          type: string
+          format: date-time
+          nullable: true
+        cancellationReason:
+          type: string
+          maxLength: 65535
+          nullable: true
+      required:
+        - id
+        - code
+        - recipientEmail
+        - source
+        - status
+        - productGroupId
+        - discountPercent
+        - validityDays
+        - createdAt
+
+    PromoCodeResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/PromoCode'
+      required: [data]
+
+    PromoCodeListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromoCode'
+        meta:
+          type: object
+          properties:
+            pagination:
+              $ref: '#/components/schemas/PaginationData'
+          required: [pagination]
+      required: [data, meta]
+
+    CancelPromoCodeData:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 65535
+      required: [reason]
+
+    PromoSendAttempt:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        promoCodeId:
+          $ref: '#/components/schemas/UUID'
+        attemptedAt:
+          type: string
+          format: date-time
+        status:
+          $ref: '#/components/schemas/DeliveryStatus'
+        providerMessageId:
+          type: string
+          nullable: true
+        deliveredAt:
+          type: string
+          format: date-time
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+      required: [id, promoCodeId, attemptedAt, status]
+
+    PromoSendAttemptResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/PromoSendAttempt'
+      required: [data]
+
+    ValidatePromoCodeData:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 255
+        productId:
+          $ref: '#/components/schemas/UUID'
+      required: [code, productId]
+
+    PromoCodeValidationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        discountPercent:
+          type: number
+          nullable: true
+        reason:
+          type: string
+          maxLength: 65535
+          nullable: true
+      required: [valid]
+
+    PromoCodeValidationResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/PromoCodeValidationResult'
+      required: [data]
+
+    ActivatePromoCodeData:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 255
+        purchaseId:
+          $ref: '#/components/schemas/UUID'
+        finalAmount:
+          type: number
+      required: [code, purchaseId, finalAmount]
+
+    PromoCodeActivationResult:
+      type: object
+      properties:
+        promoCodeId:
+          $ref: '#/components/schemas/UUID'
+        purchaseId:
+          $ref: '#/components/schemas/UUID'
+        activatedAt:
+          type: string
+          format: date-time
+        discountAmount:
+          type: number
+      required: [promoCodeId, purchaseId, activatedAt, discountAmount]
+
+    PromoCodeActivationResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/PromoCodeActivationResult'
+      required: [data]
+
+    ProductGroup:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+          maxLength: 255
+      required: [id, name]
+
+    Product:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 65535
+        price:
+          type: number
+        theme:
+          type: string
+          maxLength: 255
+        productGroupId:
+          $ref: '#/components/schemas/UUID'
+        published:
+          type: boolean
+      required: [id, name, description, price, productGroupId, published]
+
+    UpdateProductData:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 65535
+        price:
+          type: number
+        theme:
+          type: string
+          maxLength: 255
+        productGroupId:
+          $ref: '#/components/schemas/UUID'
+        published:
+          type: boolean
+
+    ProductResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Product'
+      required: [data]
+
+    ProductListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Product'
+        meta:
+          type: object
+          properties:
+            pagination:
+              $ref: '#/components/schemas/PaginationData'
+          required: [pagination]
+      required: [data, meta]
+
+    PromoStatusReportResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            created:
+              type: integer
+            availableForActivation:
+              type: integer
+            activated:
+              type: integer
+            cancelled:
+              type: integer
+            annulled:
+              type: integer
+          required: [created, availableForActivation, activated, cancelled, annulled]
+      required: [data]
+
+    PromoCohortReportResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            totalIssued:
+              type: integer
+            activatedInSamePeriod:
+              type: integer
+            activatedInNextPeriod:
+              type: integer
+            activationRateSamePeriod:
+              type: number
+            activationRateNextPeriod:
+              type: number
+          required:
+            - totalIssued
+            - activatedInSamePeriod
+            - activatedInNextPeriod
+            - activationRateSamePeriod
+            - activationRateNextPeriod
+      required: [data]

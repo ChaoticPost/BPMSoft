@@ -1,0 +1,88 @@
+@startuml
+' C4 / Level 2 — Container, NOT Component. Requires C4-PlantUML library.
+!include <C4/C4_Container>
+title C2. Контейнерная архитектура ProfIT на BPMSoft (драфт 3)
+LAYOUT_LEFT_RIGHT()
+
+Person(owner, "Владелец ProfIT", "Управляет промокодами, ролями и отчётами")
+Person(employee, "Сотрудник ProfIT", "Проводит турниры, ведёт тесты и каталог")
+Person(publicUser, "Публичный пользователь", "Покупатель / пользователь онлайн-теста")
+System_Ext(commerce, "Торговый контур", "[допущение] Покупки и ВСЕ продажи новой группы; покупатель приходит сюда (C1)")
+System_Ext(provider, "Unisender Go", "[проектный выбор] Провайдер писем и статусов доставки")
+
+System_Boundary(profit, "Информационная система ProfIT") {
+  Container_Boundary(bpm, "Штатные средства BPMSoft / конфигурация платформы") {
+    Container(adminClient, "Веб-клиент BPMSoft", "Browser / HTTPS", "Рабочее место владельца и сотрудника")
+    Container(staffMobile, "BPMSoft Mobile 2.0", "Клиент платформы", "[проектное решение] Работа сотрудника на площадке")
+    Container(core, "Ядро BPMSoft", "Low-code, процессы, расширения", "Турниры, тесты, каталог, промокоды; встроенные роли и права")
+    ContainerDb(businessDB, "BPMSoftDatabase", "PostgreSQL / SQL", "[проектный вариант] Хранилище бизнес-объектов")
+    ContainerDb(redisDB, "RedisDatabase", "Redis", "[опционально] Кэш и служебные сессии")
+    Container(reporting, "Insight / конструктор отчётов", "BPMSoft", "R-1—R-4; показатели промокодов и продаж")
+    Container(scheduler, "Планировщик и воркеры", "BPMSoft background workers", "[проектная схема] Аннуляция, повторная отправка, обработка событий")
+    Container(rabbit, "Очередь RabbitMQ", "AMQP", "[проектная схема] Очередь для фоновых заданий")
+    Container(campaign, "CES / обработка почтовых событий", "BPMSoft + Webhook", "Инициирование писем, приём асинхронных статусов")
+  }
+  Container_Boundary(custom, "Заказная разработка ProfIT") {
+    Container(web, "Публичный веб-сайт ProfIT", "Web / HTTPS", "Тесты, результаты и каталог")
+    Container(mobile, "Публичное мобильное приложение", "Mobile / HTTPS", "Тесты и каталог; НЕ BPMSoft Mobile")
+    Container(api, "Интеграционный API ProfIT", "REST / JSON / HTTPS", "Ограниченный доступ и обмен с торговым контуром")
+  }
+}
+
+Rel(owner, adminClient, "Настраивает права, получает отчёты", "HTTPS")
+Rel(employee, adminClient, "Ведёт объекты и результаты", "HTTPS")
+Rel(employee, staffMobile, "Записывает игровые результаты", "HTTPS [проектное решение]")
+Rel(publicUser, web, "Проходит тест / смотрит каталог", "HTTPS")
+Rel(publicUser, mobile, "Те же публичные сценарии", "HTTPS")
+Rel(adminClient, core, "Работает с объектами и правами", "HTTPS / BPMSoft web client")
+Rel(staffMobile, core, "Рабочие операции", "HTTPS / BPMSoft Mobile")
+Rel(web, api, "Тесты и каталог", "REST / JSON / HTTPS")
+Rel(mobile, api, "Тесты и каталог", "REST / JSON / HTTPS")
+Rel(api, core, "Разрешённые данные и операции", "REST / JSON / HTTPS [проектное решение]")
+Rel(commerce, api, "Проверка промокода / подтверждение", "REST / JSON / HTTPS")
+Rel(commerce, api, "ВСЕ продажи, включая без кода", "REST / JSON / HTTPS [проектный контракт]")
+Rel(core, businessDB, "Хранит доменные объекты", "PostgreSQL protocol / TCP")
+Rel(core, redisDB, "Кэш / технические сессии", "Redis protocol / TCP [опционально]")
+Rel(core, reporting, "Передаёт данные показателей", "Внутренний механизм BPMSoft")
+Rel(adminClient, reporting, "Открывает R-1–R-4 и дашборды владельцу", "BPMSoft web client / HTTPS")
+Rel(core, rabbit, "Ставит фоновые задания", "AMQP [проектный маршрут]")
+Rel(scheduler, rabbit, "Получает и подтверждает задания", "AMQP [проектный маршрут]")
+Rel(scheduler, core, "Выполняет переходы статусов", "Внутренняя операция BPMSoft")
+Rel(scheduler, campaign, "Инициирует отправку", "Механизм BPMSoft")
+Rel(campaign, provider, "Передаёт письмо", "HTTPS / JSON [проектный контракт]")
+Rel(provider, campaign, "Принятие / доставка / ошибка", "Webhook / JSON / HTTPS [при поддержке]")
+Rel(campaign, core, "Обновляет PromoSendAttempt и PromoCode; acceptedAt → sentAt, expiresAt, READY_TO_ACTIVATE", "Внутренняя операция / бизнес-процесс BPMSoft")
+
+note right of core
+  Конфигурирование: разделы, объекты, процессы,
+  организационные / функциональные роли и права.
+  Возможная доработка: алгоритм начисления баллов.
+  Role, Permission, AdminSession из доменной
+  модели — логические отображения механизмов
+  BPMSoft, а не собственная разработка.
+  Собственную авторизацию НЕ реализуем.
+end note
+note bottom of api
+  [проектное решение]
+  Публичным пользователям не выдаются лицензии BPMSoft.
+  Интеграционный сервис обладает только минимальными правами.
+  Не предоставляет прямой публичный доступ к ядру платформы.
+end note
+note bottom of commerce
+  [допущение] Внешняя торговая система.
+  Для E-6: нужны покупки с кодом и без кода,
+  выручка по позициям, данные базового периода.
+  ROMI дополнительно требует затрат и валовой прибыли.
+end note
+legend bottom
+  Платформа BPMSoft: штатные или конфигурируемые механизмы.
+  Заказная разработка: публичные приложения и интеграционный API.
+  Внешние системы: торговый контур и провайдер email.
+  Покупатель → торговый контур и доставка письма — внешние связи C1.
+  События CES → ядро инициируют смену статуса промокода.
+  Владелец → веб-клиент → Insight открывает R-1–R-4.
+  RabbitMQ и планировщик/воркеры — проектная схема, требует проверки.
+  [проектное решение] — требует подтверждения заказчиком/вендором.
+  [опционально] — не является обязательным контейнером MVP.
+endlegend
+@enduml

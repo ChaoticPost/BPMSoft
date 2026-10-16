@@ -1,0 +1,67 @@
+@startuml
+title C1. Контекст информационной системы ProfIT (драфт 3)
+
+left to right direction
+
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam linetype ortho
+skinparam roundcorner 10
+skinparam ArrowColor #526677
+skinparam ArrowFontSize 10
+
+skinparam actor {
+  FontColor #14324D
+  BorderColor #24557C
+}
+
+skinparam rectangle {
+  BorderColor #2E6895
+  BackgroundColor #E8F3FD
+  FontColor #163E5F
+}
+
+actor "Владелец\nProfIT" as Owner
+actor "Сотрудник\nProfIT" as Employee
+actor "Пользователь\nонлайн-теста" as TestUser
+actor "Покупатель" as Buyer
+actor "Победитель\nофлайн-турнира" as Winner
+
+rectangle "Информационная система ProfIT\nТурниры · Тесты · Промокоды\nКаталог · Скидки · Аналитика" as ProfIT #DDEEFF
+rectangle "Почтовый провайдер\n[вариант: Unisender Go]" as Mail #FFF1DE
+rectangle "Внешний торговый контур\n[допущение]" as Commerce #FFF1DE
+
+Owner --> ProfIT : Управляет промоакцией\nи запрашивает отчёты
+Employee --> ProfIT : Ведёт турниры, тесты\nи каталог
+TestUser --> ProfIT : Проходит тест\nи получает результат
+Buyer --> ProfIT : Просматривает каталог
+Buyer --> Commerce : Покупает игру\nи предъявляет код
+Commerce --> ProfIT : Проверяет код\nпо составу заказа
+ProfIT --> Commerce : Возвращает применимость\nи размер скидки
+Commerce --> ProfIT : Передаёт покупки и все\nпродажи целевой группы
+ProfIT --> Mail : Инициирует рассылку\nпромокодов
+Mail --> ProfIT : Передаёт статусы приёма,\nдоставки и ошибки
+Mail --> TestUser : Доставляет промокод
+Mail --> Winner : Доставляет промокод
+
+note bottom of Winner
+Победитель получает письмо, затем может
+действовать как покупатель — это роли одного
+человека в разных шагах сценария.
+Результаты турнира вводит сотрудник.
+end note
+
+note bottom of Commerce
+[Допущение] Торговля реализована вне ProfIT.
+Для E-6 нужны ВСЕ продажи новой группы,
+включая без промокода и базовый период.
+end note
+
+legend bottom
+C1 показывает инициаторов взаимодействий, а не контейнеры.
+Web/Mobile/BPMSoft и протоколы раскрываются только на C2.
+Стрелки направлены от инициатора действия или события.
+endlegend
+
+@enduml
