@@ -1,0 +1,656 @@
+asyncapi: 3.0.0
+
+info:
+  title: ProfIT Asynchronous Messaging
+  version: 1.0.0
+  description: |
+    Асинхронные команды и доменные события ProfIT (AsyncAPI 3.0.0).
+
+    ## Архитектурный маршрут (C2)
+    `ядро BPMSoft → RabbitMQ ([проектная схема]) → планировщик/воркеры →
+    CES → Unisender Go → webhook HTTP → CES → ядро BPMSoft`
+
+    ## Что входит
+    Минимальный набор сообщений брокера для E-3:
+    - команды постановки/повтора отправки промокода;
+    - отложенные проверки DISPATCH_TIMEOUT и VALIDITY_EXPIRED;
+    - доменное событие активации промокода ([проектное решение], outbox).
+
+    ## Что не входит
+    - Webhook провайдера — HTTP-контракт (см. `openapi.yaml`
+      `/integrations/mail/provider-events`), не канал RabbitMQ.
+    - Обновление PromoSendAttempt CES→ядро — внутренняя операция BPMSoft.
+    - Административные CRUD-события «на каждое поле» — исключены.
+
+    ## Конверт
+    Структурированный режим CloudEvents 1.0 (`datacontenttype: application/json`).
+    Уникальность события: пара `source + id`. Не смешивать с binary mode.
+
+    ## Доставка
+    At-least-once на брокере. Exactly-once end-to-end **не** утверждается:
+    потребители идемпотентны по бизнес-ключу. Числовые TTL/retry —
+    предложения для согласования.
+
+  contact:
+    name: ProfIT / РТУ МИРЭА АПиРПС
+
+defaultContentType: application/json
+
+servers:
+  rabbitmqProject:
+    host: rabbitmq.profit.example.local
+    pathname: /
+    protocol: amqp
+    description: |
+      [Проектная схема] RabbitMQ как очередь фоновых заданий.
+      Не подтверждённая production-конфигурация вендора.
+    security:
+      - $ref: '#/components/securitySchemes/rabbitUserPassword'
+    bindings:
+      amqp:
+        bindingVersion: '0.3.0'
+        is: virtualHost
+
+channels:
+  promocodes.dispatch.requested.v1:
+    address: promocodes.dispatch.requested.v1
+    description: |
+      Команда: поставить задачу первой отправки промокода.
+      Механизм: очередь (point-to-point). Гарантия: at-least-once.
+    messages:
+      PromoDispatchRequested:
+        $ref: '#/components/messages/PromoDispatchRequested'
+    bindings:
+      amqp:
+        bindingVersion: '0.3.0'
+        is: queue
+        queue:
+          name: promocodes.dispatch.requested.v1
+          durable: true
+          exclusive: false
+          autoDelete: false
+          vhost: /
+
+  promocodes.dispatch.retry.requested.v1:
+    address: promocodes.dispatch.retry.requested.v1
+    description: |
+      Команда: повторная отправка. Создаёт новую PromoSendAttempt,
+      не новый PromoCode.
+    messages:
+      PromoDispatchRetryRequested:
+        $ref: '#/components/messages/PromoDispatchRetryRequested'
+    bindings:
+      amqp:
+        bindingVersion: '0.3.0'
+        is: queue
+        queue:
+          name: promocodes.dispatch.retry.requested.v1
+          durable: true
+          exclusive: false
+          autoDelete: false
+          vhost: /
+
+  promocodes.dispatch.timeout.check.v1:
+    address: promocodes.dispatch.timeout.check.v1
+    description: |
+      Команда планировщика: проверить deliveryDeadlineAt.
+      При отсутствии ACCEPTED_BY_PROVIDER → ANNULLED (DISPATCH_TIMEOUT).
+    messages:
+      PromoDispatchTimeoutCheck:
+        $ref: '#/components/messages/PromoDispatchTimeoutCheck'
+    bindings:
+      amqp:
+        bindingVersion: '0.3.0'
+        is: queue
+        queue:
+          name: promocodes.dispatch.timeout.check.v1
+          durable: true
+          exclusive: false
+          autoDelete: false
+          vhost: /
+
+  promocodes.validity.expire.check.v1:
+    address: promocodes.validity.expire.check.v1
+    description: |
+      Команда планировщика: аннуляция по VALIDITY_EXPIRED
+      (expiresAt прошёл, статус READY_TO_ACTIVATE).
+    messages:
+      PromoValidityExpireCheck:
+        $ref: '#/components/messages/PromoValidityExpireCheck'
+    bindings:
+      amqp:
+        bindingVersion: '0.3.0'
+        is: queue
+        queue:
+          name: promocodes.validity.expire.check.v1
+          durable: true
+          exclusive: false
+          autoDelete: false
+          vhost: /
+
+  promocodes.activated.v1:
+    address: promocodes.activated.v1
+    description: |
+      Доменное событие: промокод активирован после доверенного
+      подтверждения покупки. [Проектное решение] публикация через
+      Transactional Outbox для внешних/внутренних подписчиков.
+      Insight R-1–R-4 читает БД напрямую и не обязан потреблять это событие.
+    messages:
+      PromoCodeActivated:
+        $ref: '#/components/messages/PromoCodeActivated'
+    bindings:
+      amqp:
+        bindingVersion: '0.3.0'
+        is: routingKey
+        exchange:
+          name: promocodes.events
+          type: topic
+          durable: true
+          autoDelete: false
+          vhost: /
+
+operations:
+  sendPromoDispatchRequested:
+    action: send
+    channel:
+      $ref: '#/channels/promocodes.dispatch.requested.v1'
+    summary: Ядро публикует команду первой отправки
+    description: |
+      Производитель: ядро BPMSoft (после создания PromoCode в CREATED).
+      Потребитель: воркер → CES.
+      Владелец контракта: ProfIT / команда интеграций.
+      Outbox: запись PromoCode и outbox-записи в одной транзакции БД
+      ([проектное решение]), затем публикация в брокер.
+    messages:
+      - $ref: '#/channels/promocodes.dispatch.requested.v1/messages/PromoDispatchRequested'
+    bindings:
+      amqp:
+        bindingVersion: '0.3.0'
+        ack: true
+        expiration: 86400000
+
+  receivePromoDispatchRequested:
+    action: receive
+    channel:
+      $ref: '#/channels/promocodes.dispatch.requested.v1'
+    summary: Воркер получает команду отправки
+    description: |
+      Успех: создана PromoSendAttempt (CREATED), письмо передано в CES/провайдер,
+      ACK брокеру. Идемпотентность: ключ promoCodeId + attemptNumber=1.
+      Retry: [предложение] max 5, backoff 1m/5m/15m/1h/6h.
+      DLQ: после исчерпания попыток → promocodes.dispatch.requested.v1.dlq.
+      TTL сообщения: [предложение] 24h.
+    messages:
+      - $ref: '#/channels/promocodes.dispatch.requested.v1/messages/PromoDispatchRequested'
+
+  sendPromoDispatchRetryRequested:
+    action: send
+    channel:
+      $ref: '#/channels/promocodes.dispatch.retry.requested.v1'
+    summary: Ядро/сотрудник инициирует повторную отправку
+    description: |
+      Производитель: ядро (ручной retry OWNER/EMPLOYEE через BPMSoft UI
+      или автоматический retry policy).
+      Новая PromoSendAttempt; PromoCode не клонируется.
+    messages:
+      - $ref: '#/channels/promocodes.dispatch.retry.requested.v1/messages/PromoDispatchRetryRequested'
+
+  receivePromoDispatchRetryRequested:
+    action: receive
+    channel:
+      $ref: '#/channels/promocodes.dispatch.retry.requested.v1'
+    summary: Воркер обрабатывает повторную отправку
+    description: |
+      Идемпотентность: promoCodeId + attemptNumber.
+      Не переводит ANNULLED/CANCELLED/ACTIVATED обратно в READY_TO_ACTIVATE.
+    messages:
+      - $ref: '#/channels/promocodes.dispatch.retry.requested.v1/messages/PromoDispatchRetryRequested'
+
+  sendPromoDispatchTimeoutCheck:
+    action: send
+    channel:
+      $ref: '#/channels/promocodes.dispatch.timeout.check.v1'
+    summary: Планировщик ставит проверку срока отправки
+    description: |
+      Производитель: планировщик BPMSoft.
+      Триггер: approaching/passed deliveryDeadlineAt при отсутствии accepted.
+    messages:
+      - $ref: '#/channels/promocodes.dispatch.timeout.check.v1/messages/PromoDispatchTimeoutCheck'
+
+  receivePromoDispatchTimeoutCheck:
+    action: receive
+    channel:
+      $ref: '#/channels/promocodes.dispatch.timeout.check.v1'
+    summary: Воркер аннулирует по DISPATCH_TIMEOUT
+    description: |
+      Если нет ACCEPTED_BY_PROVIDER до deliveryDeadlineAt:
+      PromoCode → ANNULLED, annulReason=DISPATCH_TIMEOUT, annulledAt=now.
+      Идемпотентность: повторная проверка безопасна (уже ANNULLED → no-op).
+    messages:
+      - $ref: '#/channels/promocodes.dispatch.timeout.check.v1/messages/PromoDispatchTimeoutCheck'
+
+  sendPromoValidityExpireCheck:
+    action: send
+    channel:
+      $ref: '#/channels/promocodes.validity.expire.check.v1'
+    summary: Планировщик ставит проверку срока действия
+    messages:
+      - $ref: '#/channels/promocodes.validity.expire.check.v1/messages/PromoValidityExpireCheck'
+
+  receivePromoValidityExpireCheck:
+    action: receive
+    channel:
+      $ref: '#/channels/promocodes.validity.expire.check.v1'
+    summary: Воркер аннулирует по VALIDITY_EXPIRED
+    description: |
+      READY_TO_ACTIVATE и now > expiresAt → ANNULLED (VALIDITY_EXPIRED).
+      ACTIVATED/CANCELLED не затрагиваются.
+    messages:
+      - $ref: '#/channels/promocodes.validity.expire.check.v1/messages/PromoValidityExpireCheck'
+
+  sendPromoCodeActivated:
+    action: send
+    channel:
+      $ref: '#/channels/promocodes.activated.v1'
+    summary: Ядро публикует событие активации
+    description: |
+      Производитель: ядро после успешного confirmPurchase с активацией.
+      Публикация через outbox. correlationId = purchaseExternalId / purchaseId.
+    messages:
+      - $ref: '#/channels/promocodes.activated.v1/messages/PromoCodeActivated'
+
+  receivePromoCodeActivated:
+    action: receive
+    channel:
+      $ref: '#/channels/promocodes.activated.v1'
+    summary: Подписчик получает факт активации
+    description: |
+      Потребители: опциональные интеграции/аудит ([проектное решение]).
+      Дедуп: source + id. Порядок: не гарантируется между разными promoCodeId;
+      для одного promoCodeId активация однократна на уровне домена.
+    messages:
+      - $ref: '#/channels/promocodes.activated.v1/messages/PromoCodeActivated'
+
+components:
+  securitySchemes:
+    rabbitUserPassword:
+      type: userPassword
+      description: |
+        [Проектное решение] Учётная запись приложения к виртуальному хосту RabbitMQ.
+        Секреты вне спецификации.
+
+  messageTraits:
+    cloudEventHeaders:
+      headers:
+        type: object
+        required: [ce-specversion, ce-id, ce-source, ce-type, ce-time]
+        properties:
+          content-type:
+            type: string
+            const: application/cloudevents+json
+          ce-specversion:
+            type: string
+            const: '1.0'
+          ce-id:
+            type: string
+            description: Уникален в пределах source
+            maxLength: 128
+          ce-source:
+            type: string
+            format: uri-reference
+            description: Производитель, напр. urn:profit:bpmsoft-core
+          ce-type:
+            type: string
+            maxLength: 255
+          ce-subject:
+            type: string
+            maxLength: 255
+            description: Обычно promoCodeId
+          ce-time:
+            type: string
+            format: date-time
+          ce-datacontenttype:
+            type: string
+            const: application/json
+          correlation-id:
+            type: string
+            maxLength: 128
+            description: Трассировка сквозного сценария
+
+  messages:
+    PromoDispatchRequested:
+      name: PromoDispatchRequested
+      title: Команда первой отправки промокода
+      contentType: application/cloudevents+json
+      traits:
+        - $ref: '#/components/messageTraits/cloudEventHeaders'
+      payload:
+        $ref: '#/components/schemas/CloudEventPromoDispatchRequested'
+      examples:
+        - name: firstDispatch
+          payload:
+            specversion: '1.0'
+            id: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+            source: urn:profit:bpmsoft-core
+            type: com.profit.promocodes.dispatch.requested.v1
+            subject: 99999999-9999-9999-9999-999999999999
+            time: '2026-10-16T12:00:00Z'
+            datacontenttype: application/json
+            correlationid: ground-test-attempt-5555
+            data:
+              promoCodeId: 99999999-9999-9999-9999-999999999999
+              ground: TEST
+              productGroupId: 44444444-4444-4444-4444-444444444444
+              validityDays: 14
+              deliveryDeadlineAt: '2026-10-16T18:00:00Z'
+              recipientEmail: winner@example.com
+              attemptNumber: 1
+
+    PromoDispatchRetryRequested:
+      name: PromoDispatchRetryRequested
+      title: Команда повторной отправки
+      contentType: application/cloudevents+json
+      traits:
+        - $ref: '#/components/messageTraits/cloudEventHeaders'
+      payload:
+        $ref: '#/components/schemas/CloudEventPromoDispatchRetryRequested'
+      examples:
+        - name: retry
+          payload:
+            specversion: '1.0'
+            id: 8d0e6679-7425-40de-944b-e07fc1f90ae8
+            source: urn:profit:bpmsoft-core
+            type: com.profit.promocodes.dispatch.retry.requested.v1
+            subject: 99999999-9999-9999-9999-999999999999
+            time: '2026-10-16T13:00:00Z'
+            datacontenttype: application/json
+            data:
+              promoCodeId: 99999999-9999-9999-9999-999999999999
+              attemptNumber: 2
+              reason: PREVIOUS_ATTEMPT_FAILED
+              recipientEmail: winner@example.com
+              deliveryDeadlineAt: '2026-10-16T18:00:00Z'
+
+    PromoDispatchTimeoutCheck:
+      name: PromoDispatchTimeoutCheck
+      title: Проверка срока принятия письма провайдером
+      contentType: application/cloudevents+json
+      traits:
+        - $ref: '#/components/messageTraits/cloudEventHeaders'
+      payload:
+        $ref: '#/components/schemas/CloudEventPromoDispatchTimeoutCheck'
+      examples:
+        - name: timeoutCheck
+          payload:
+            specversion: '1.0'
+            id: 9e1e6679-7425-40de-944b-e07fc1f90ae9
+            source: urn:profit:bpmsoft-scheduler
+            type: com.profit.promocodes.dispatch.timeout.check.v1
+            subject: 99999999-9999-9999-9999-999999999999
+            time: '2026-10-16T18:00:01Z'
+            datacontenttype: application/json
+            data:
+              promoCodeId: 99999999-9999-9999-9999-999999999999
+              deliveryDeadlineAt: '2026-10-16T18:00:00Z'
+              expectedAnnulReason: DISPATCH_TIMEOUT
+
+    PromoValidityExpireCheck:
+      name: PromoValidityExpireCheck
+      title: Проверка истечения срока активации
+      contentType: application/cloudevents+json
+      traits:
+        - $ref: '#/components/messageTraits/cloudEventHeaders'
+      payload:
+        $ref: '#/components/schemas/CloudEventPromoValidityExpireCheck'
+      examples:
+        - name: expireCheck
+          payload:
+            specversion: '1.0'
+            id: ae2e6679-7425-40de-944b-e07fc1f90aea
+            source: urn:profit:bpmsoft-scheduler
+            type: com.profit.promocodes.validity.expire.check.v1
+            subject: 99999999-9999-9999-9999-999999999999
+            time: '2026-10-30T12:00:01Z'
+            datacontenttype: application/json
+            data:
+              promoCodeId: 99999999-9999-9999-9999-999999999999
+              expiresAt: '2026-10-30T12:00:00Z'
+              expectedAnnulReason: VALIDITY_EXPIRED
+
+    PromoCodeActivated:
+      name: PromoCodeActivated
+      title: Доменное событие активации промокода
+      contentType: application/cloudevents+json
+      traits:
+        - $ref: '#/components/messageTraits/cloudEventHeaders'
+      payload:
+        $ref: '#/components/schemas/CloudEventPromoCodeActivated'
+      examples:
+        - name: activated
+          payload:
+            specversion: '1.0'
+            id: be3e6679-7425-40de-944b-e07fc1f90aeb
+            source: urn:profit:bpmsoft-core
+            type: com.profit.promocodes.activated.v1
+            subject: 99999999-9999-9999-9999-999999999999
+            time: '2026-10-16T14:30:05Z'
+            datacontenttype: application/json
+            correlationid: shop-order-10042
+            data:
+              promoCodeId: 99999999-9999-9999-9999-999999999999
+              purchaseId: 88888888-8888-8888-8888-888888888888
+              purchaseExternalId: shop-order-10042
+              activatedAt: '2026-10-16T14:30:05Z'
+              productGroupId: 44444444-4444-4444-4444-444444444444
+              discountTotal: '149.00'
+
+  schemas:
+    UUID:
+      type: string
+      format: uuid
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+
+    MoneyDecimal:
+      type: string
+      pattern: '^-?\d+\.\d{2}$'
+      description: Decimal scale=2 (RUB)
+
+    PromoGround:
+      type: string
+      enum: [GAME, TEST]
+
+    AnnulReason:
+      type: string
+      enum: [DISPATCH_TIMEOUT, VALIDITY_EXPIRED]
+
+    RetryReason:
+      type: string
+      enum: [PREVIOUS_ATTEMPT_FAILED, MANUAL]
+
+    CloudEventEnvelope:
+      type: object
+      required: [specversion, id, source, type, time, datacontenttype, data]
+      properties:
+        specversion:
+          type: string
+          const: '1.0'
+        id:
+          type: string
+          maxLength: 128
+        source:
+          type: string
+          format: uri-reference
+        type:
+          type: string
+          maxLength: 255
+        subject:
+          type: string
+          maxLength: 255
+        time:
+          type: string
+          format: date-time
+        datacontenttype:
+          type: string
+          const: application/json
+        correlationid:
+          type: string
+          maxLength: 128
+          description: Расширение CloudEvents для сквозной корреляции
+        data:
+          type: object
+
+    PromoDispatchRequestedData:
+      type: object
+      required:
+        - promoCodeId
+        - ground
+        - productGroupId
+        - validityDays
+        - deliveryDeadlineAt
+        - recipientEmail
+        - attemptNumber
+      properties:
+        promoCodeId:
+          $ref: '#/components/schemas/UUID'
+        ground:
+          $ref: '#/components/schemas/PromoGround'
+        productGroupId:
+          $ref: '#/components/schemas/UUID'
+        validityDays:
+          type: integer
+          minimum: 1
+        deliveryDeadlineAt:
+          type: string
+          format: date-time
+        recipientEmail:
+          type: string
+          format: email
+          description: PII; канал только для доверенных воркеров
+        attemptNumber:
+          type: integer
+          const: 1
+
+    CloudEventPromoDispatchRequested:
+      allOf:
+        - $ref: '#/components/schemas/CloudEventEnvelope'
+        - type: object
+          properties:
+            type:
+              const: com.profit.promocodes.dispatch.requested.v1
+            data:
+              $ref: '#/components/schemas/PromoDispatchRequestedData'
+
+    PromoDispatchRetryRequestedData:
+      type: object
+      required:
+        - promoCodeId
+        - attemptNumber
+        - reason
+        - recipientEmail
+        - deliveryDeadlineAt
+      properties:
+        promoCodeId:
+          $ref: '#/components/schemas/UUID'
+        attemptNumber:
+          type: integer
+          minimum: 2
+        reason:
+          $ref: '#/components/schemas/RetryReason'
+        recipientEmail:
+          type: string
+          format: email
+        deliveryDeadlineAt:
+          type: string
+          format: date-time
+
+    CloudEventPromoDispatchRetryRequested:
+      allOf:
+        - $ref: '#/components/schemas/CloudEventEnvelope'
+        - type: object
+          properties:
+            type:
+              const: com.profit.promocodes.dispatch.retry.requested.v1
+            data:
+              $ref: '#/components/schemas/PromoDispatchRetryRequestedData'
+
+    PromoDispatchTimeoutCheckData:
+      type: object
+      required: [promoCodeId, deliveryDeadlineAt, expectedAnnulReason]
+      properties:
+        promoCodeId:
+          $ref: '#/components/schemas/UUID'
+        deliveryDeadlineAt:
+          type: string
+          format: date-time
+        expectedAnnulReason:
+          type: string
+          const: DISPATCH_TIMEOUT
+
+    CloudEventPromoDispatchTimeoutCheck:
+      allOf:
+        - $ref: '#/components/schemas/CloudEventEnvelope'
+        - type: object
+          properties:
+            type:
+              const: com.profit.promocodes.dispatch.timeout.check.v1
+            data:
+              $ref: '#/components/schemas/PromoDispatchTimeoutCheckData'
+
+    PromoValidityExpireCheckData:
+      type: object
+      required: [promoCodeId, expiresAt, expectedAnnulReason]
+      properties:
+        promoCodeId:
+          $ref: '#/components/schemas/UUID'
+        expiresAt:
+          type: string
+          format: date-time
+        expectedAnnulReason:
+          type: string
+          const: VALIDITY_EXPIRED
+
+    CloudEventPromoValidityExpireCheck:
+      allOf:
+        - $ref: '#/components/schemas/CloudEventEnvelope'
+        - type: object
+          properties:
+            type:
+              const: com.profit.promocodes.validity.expire.check.v1
+            data:
+              $ref: '#/components/schemas/PromoValidityExpireCheckData'
+
+    PromoCodeActivatedData:
+      type: object
+      required:
+        - promoCodeId
+        - purchaseId
+        - purchaseExternalId
+        - activatedAt
+        - productGroupId
+        - discountTotal
+      properties:
+        promoCodeId:
+          $ref: '#/components/schemas/UUID'
+        purchaseId:
+          $ref: '#/components/schemas/UUID'
+        purchaseExternalId:
+          type: string
+          maxLength: 128
+        activatedAt:
+          type: string
+          format: date-time
+        productGroupId:
+          $ref: '#/components/schemas/UUID'
+        discountTotal:
+          $ref: '#/components/schemas/MoneyDecimal'
+        # email получателя намеренно отсутствует — не нужен подписчикам активации
+
+    CloudEventPromoCodeActivated:
+      allOf:
+        - $ref: '#/components/schemas/CloudEventEnvelope'
+        - type: object
+          properties:
+            type:
+              const: com.profit.promocodes.activated.v1
+            data:
+              $ref: '#/components/schemas/PromoCodeActivatedData'
