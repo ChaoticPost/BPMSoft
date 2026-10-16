@@ -1,664 +1,619 @@
 openapi: 3.0.3
-
 info:
-  title: 'ProfIT API'
-  description: 'Единый документ REST API системы ProfIT. Самодостаточный, без внешних ссылок.'
-  version: '1.0'
+  title: ProfIT Integration API
+  description: |
+    Интеграционный REST API информационной системы ProfIT (OpenAPI 3.0.3).
+
+    ## Назначение
+    Заказной интеграционный контракт для:
+    - публичных приложений (каталог, онлайн-тесты);
+    - внешнего торгового контура (проверка промокода, подтверждение покупки, передача продаж);
+    - webhook почтового провайдера (статусы попыток отправки).
+
+    ## Архитектурные границы (C2)
+    Администрирование турниров, каталога, версий тестов, ролей, отчётов R-1–R-4
+    и служебная аутентификация сотрудников выполняются через штатный веб-клиент
+    BPMSoft / Insight и **не дублируются** в данном API.
+
+    Ядро BPMSoft остаётся системой записи. Данный API — тонкий интеграционный
+    фасад с минимальными правами ([проектное решение] C2).
+
+    ## Контуры доверия
+    1. **Public** — анонимный посетитель; доступ только к опубликованным данным
+       и собственной попытке теста (токен попытки).
+    2. **Commerce** — машинная аутентификация торгового контура.
+    3. **MailProvider** — проверка подлинности webhook провайдера.
+
+    ## Денежные значения
+    Суммы передаются строкой в формате decimal с ровно двумя знаками после точки
+    (единица — рубль, scale = 2), без двоичного float. Пример: `"1490.00"`.
+
+    ## Ошибки
+    `application/problem+json` по RFC 9457. Поле `status` — целое число.
+  version: 1.0.0
+  contact:
+    name: ProfIT / РТУ МИРЭА АПиРПС
+  license:
+    name: Proprietary — academic use
 
 servers:
-  - url: https://api.profit.local/admin/v1
-    description: Admin API
-  - url: https://api.profit.local/public/v1
-    description: Public API
+  - url: https://profit.example.local/api/v1
+    description: Условный базовый URL (не production)
 
 tags:
-  - name: Auth
-  - name: Tournaments
-  - name: GameSessions
-  - name: GameRounds
-  - name: GameTurns
-  - name: OnlineTests
-  - name: PromoCodes
-  - name: Products
-  - name: Reports
+  - name: PublicCatalog
+    description: E-4 — опубликованный каталог товаров
+  - name: PublicOnlineTests
+    description: E-2 — публичное прохождение онлайн-тестов
+  - name: CommerceIntegrations
+    description: E-3 / E-5 / E-6 — интеграции с торговым контуром
+  - name: MailWebhooks
+    description: E-3 — webhook статусов почтового провайдера (CES)
 
 paths:
-  /auth/login:
-    post:
-      tags: [Auth]
-      summary: Аутентификация сотрудника
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-            example:
-              login: regina
-              password: secret
-      responses:
-        '200':
-          description: Успешная аутентификация.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LoginResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /tournaments:
-    get:
-      tags: [Tournaments]
-      summary: Список турниров
-      parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-        - name: status
-          in: query
-          required: false
-          schema:
-            $ref: '#/components/schemas/TournamentStatus'
-      responses:
-        '200':
-          description: Список турниров.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TournamentListResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-    post:
-      tags: [Tournaments]
-      summary: Создать турнир
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateTournamentData'
-            example:
-              name: 'Крокодил: зимний кубок'
-              heldAt: '2026-10-15T18:00:00Z'
-              productId: '123e4567-e89b-12d3-a456-426655440000'
-      responses:
-        '201':
-          description: Турнир создан.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TournamentResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /tournaments/{tournamentId}:
-    parameters:
-      - $ref: '#/components/parameters/TournamentId'
-    get:
-      tags: [Tournaments]
-      summary: Данные турнира
-      responses:
-        '200':
-          description: Данные турнира.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TournamentResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /tournaments/{tournamentId}/sessions:
-    parameters:
-      - $ref: '#/components/parameters/TournamentId'
-    post:
-      tags: [GameSessions]
-      summary: Создать игровую сессию
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateGameSessionData'
-            example:
-              participantIds:
-                - '11111111-1111-1111-1111-111111111111'
-                - '22222222-2222-2222-2222-222222222222'
-      responses:
-        '201':
-          description: Сессия создана.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GameSessionResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /sessions/{sessionId}:
-    parameters:
-      - $ref: '#/components/parameters/SessionId'
-    get:
-      tags: [GameSessions]
-      summary: Данные сессии
-      responses:
-        '200':
-          description: Данные сессии.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GameSessionResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /sessions/{sessionId}/participants:
-    parameters:
-      - $ref: '#/components/parameters/SessionId'
-    post:
-      tags: [GameSessions]
-      summary: Добавить участника до старта сессии
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AddParticipantData'
-            example:
-              name: Регина
-              email: regina@example.com
-      responses:
-        '201':
-          description: Участник добавлен.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SessionParticipantResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '409':
-          $ref: '#/components/responses/Conflict'
-
-  /sessions/{sessionId}/start:
-    parameters:
-      - $ref: '#/components/parameters/SessionId'
-    patch:
-      tags: [GameSessions]
-      summary: Запустить сессию
-      responses:
-        '204':
-          description: Сессия запущена.
-        '409':
-          $ref: '#/components/responses/Conflict'
-
-  /sessions/{sessionId}/finish:
-    parameters:
-      - $ref: '#/components/parameters/SessionId'
-    patch:
-      tags: [GameSessions]
-      summary: Завершить сессию и зафиксировать победителя
-      responses:
-        '200':
-          description: Сессия завершена.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GameSessionResponse'
-        '409':
-          $ref: '#/components/responses/Conflict'
-
-  /sessions/{sessionId}/rounds:
-    parameters:
-      - $ref: '#/components/parameters/SessionId'
-    post:
-      tags: [GameRounds]
-      summary: Создать раунд в активной сессии
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateGameRoundData'
-            example:
-              number: 1
-      responses:
-        '201':
-          description: Раунд создан.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GameRoundResponse'
-        '409':
-          $ref: '#/components/responses/Conflict'
-
-  /rounds/{roundId}/turns:
-    parameters:
-      - $ref: '#/components/parameters/RoundId'
-    post:
-      tags: [GameTurns]
-      summary: Зафиксировать игровой ход
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateGameTurnData'
-            example:
-              explainerParticipantId: '11111111-1111-1111-1111-111111111111'
-              guesserParticipantId: '22222222-2222-2222-2222-222222222222'
-              wordId: '33333333-3333-3333-3333-333333333333'
-              representationMethod: Пантомима
-              guessed: true
-      responses:
-        '201':
-          description: Ход зафиксирован.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GameTurnResponse'
-        '409':
-          $ref: '#/components/responses/Conflict'
-
-  /tests:
-    get:
-      tags: [OnlineTests]
-      summary: Список онлайн-тестов
-      responses:
-        '200':
-          description: Список тестов.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OnlineTestListResponse'
-    post:
-      tags: [OnlineTests]
-      summary: Создать онлайн-тест
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateOnlineTestData'
-            example:
-              name: 'Тест о настольных играх'
-      responses:
-        '201':
-          description: Тест создан.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OnlineTestResponse'
-
-  /tests/{testId}/versions:
-    parameters:
-      - $ref: '#/components/parameters/TestId'
-    post:
-      tags: [OnlineTests]
-      summary: Создать черновую версию теста
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTestVersionData'
-            example:
-              successThreshold: 3
-      responses:
-        '201':
-          description: Версия создана.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TestVersionResponse'
-
-  /versions/{versionId}/publish:
-    parameters:
-      - $ref: '#/components/parameters/VersionId'
-    patch:
-      tags: [OnlineTests]
-      summary: Опубликовать версию теста
-      responses:
-        '204':
-          description: Версия опубликована.
-        '409':
-          $ref: '#/components/responses/Conflict'
-
-  /promocodes:
-    get:
-      tags: [PromoCodes]
-      summary: Поиск промокодов
-      parameters:
-        - name: code
-          in: query
-          schema:
-            type: string
-            maxLength: 255
-        - name: recipientEmail
-          in: query
-          schema:
-            type: string
-            format: email
-            maxLength: 255
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-      responses:
-        '200':
-          description: Список промокодов.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PromoCodeListResponse'
-
-  /promocodes/{promoCodeId}:
-    parameters:
-      - $ref: '#/components/parameters/PromoCodeId'
-    get:
-      tags: [PromoCodes]
-      summary: Детали промокода
-      responses:
-        '200':
-          description: Детали промокода.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PromoCodeResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /promocodes/{promoCodeId}/send:
-    parameters:
-      - $ref: '#/components/parameters/PromoCodeId'
-    post:
-      tags: [PromoCodes]
-      summary: Инициировать отправку промокода
-      responses:
-        '202':
-          description: Отправка инициирована.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PromoSendAttemptResponse'
-
-  /promocodes/{promoCodeId}/cancel:
-    parameters:
-      - $ref: '#/components/parameters/PromoCodeId'
-    post:
-      tags: [PromoCodes]
-      summary: Отменить промокод
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CancelPromoCodeData'
-            example:
-              reason: 'Подозрение на злоупотребление'
-      responses:
-        '204':
-          description: Промокод отменён.
-        '403':
-          $ref: '#/components/responses/Forbidden'
-
-  /products:
-    get:
-      tags: [Products]
-      summary: Административный список товаров
-      parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-        - name: published
-          in: query
-          schema:
-            type: boolean
-      responses:
-        '200':
-          description: Список товаров.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProductListResponse'
-    post:
-      tags: [Products]
-      summary: Создать карточку товара
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateProductData'
-            example:
-              name: 'Крокодил: детская версия'
-              description: 'Настольная игра для детей от 6 лет.'
-              price: 1490.00
-              theme: 'Животные'
-              productGroupId: '44444444-4444-4444-4444-444444444444'
-              published: true
-      responses:
-        '201':
-          description: Товар создан.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProductResponse'
-
-  /products/{productId}:
-    parameters:
-      - $ref: '#/components/parameters/ProductId'
-    patch:
-      tags: [Products]
-      summary: Обновить товар
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateProductData'
-      responses:
-        '204':
-          description: Товар обновлён.
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /reports/promocodes/statuses:
-    get:
-      tags: [Reports]
-      summary: Отчёт по статусам промокодов за период
-      parameters:
-        - name: dateFrom
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: dateTo
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: source
-          in: query
-          schema:
-            $ref: '#/components/schemas/PromoSource'
-      responses:
-        '200':
-          description: Отчёт.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PromoStatusReportResponse'
-
-  /reports/promocodes/cohorts:
-    get:
-      tags: [Reports]
-      summary: Когортные показатели активации промокодов
-      parameters:
-        - name: periodFrom
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: periodTo
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: source
-          in: query
-          schema:
-            $ref: '#/components/schemas/PromoSource'
-      responses:
-        '200':
-          description: Когортный отчёт.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PromoCohortReportResponse'
-
   /public/products:
     get:
-      tags: [Products]
-      summary: Публичный каталог
+      tags: [PublicCatalog]
+      operationId: listPublicProducts
+      summary: Список опубликованных товаров
+      description: |
+        Инициатор: публичный веб/мобильный клиент.
+        Получатель: интеграционный API → ядро BPMSoft.
+        Возвращает только `published = true`. Служебные статусы и черновики скрыты.
+        Эпик: E-4. Сущности: Product, ProductGroup.
       parameters:
-        - $ref: '#/components/parameters/locale'
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+        - name: productGroupId
+          in: query
+          required: false
+          description: Фильтр по товарной группе
+          schema:
+            $ref: '#/components/schemas/UUID'
+        - $ref: '#/components/parameters/AcceptLanguage'
       responses:
         '200':
-          description: Публичный каталог.
+          description: Страница опубликованных товаров
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ProductListResponse'
+                $ref: '#/components/schemas/PublicProductListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      security: []
+
+  /public/products/{productId}:
+    get:
+      tags: [PublicCatalog]
+      operationId: getPublicProduct
+      summary: Карточка опубликованного товара
+      description: |
+        Инициатор: публичный клиент. 404, если товар не существует или не опубликован.
+        Эпик: E-4.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+        - $ref: '#/components/parameters/AcceptLanguage'
+      responses:
+        '200':
+          description: Карточка товара
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicProductResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security: []
 
   /public/tests:
     get:
-      tags: [OnlineTests]
-      summary: Публичный список тестов
+      tags: [PublicOnlineTests]
+      operationId: listPublicOnlineTests
+      summary: Список опубликованных онлайн-тестов
+      description: |
+        Возвращает тесты, у которых есть опубликованная версия.
+        Черновые версии недоступны. Эпик: E-2. Сущность: OnlineTest.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
       responses:
         '200':
-          description: Публичный список тестов.
+          description: Список тестов
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OnlineTestListResponse'
+                $ref: '#/components/schemas/PublicOnlineTestListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security: []
+
+  /public/tests/{testId}/published-version:
+    get:
+      tags: [PublicOnlineTests]
+      operationId: getPublishedTestVersion
+      summary: Опубликованная версия теста с вопросами
+      description: |
+        Возвращает неизменяемую опубликованную версию, вопросы и варианты ответов.
+        Признак `correct` у вариантов **не раскрывается**.
+        Инварианты: черновик недоступен; версия неизменяема после публикации.
+        Эпик: E-2. Сущности: TestVersion, TestQuestion, AnswerOption.
+      parameters:
+        - $ref: '#/components/parameters/TestId'
+      responses:
+        '200':
+          description: Опубликованная версия
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedTestVersionResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security: []
 
   /public/test-attempts:
     post:
-      tags: [OnlineTests]
-      summary: Начать попытку прохождения теста
+      tags: [PublicOnlineTests]
+      operationId: createTestAttempt
+      summary: Создать попытку прохождения
+      description: |
+        Создаёт TestAttempt, привязанную к указанной опубликованной версии.
+        В ответ выдаётся `attemptToken` ([проектное решение]: доступ к попытке
+        без регистрации публичного пользователя).
+        Клиент обязан передавать токен в заголовке `X-Attempt-Token` для
+        последующих операций с попыткой.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StartTestAttemptData'
+              $ref: '#/components/schemas/CreateTestAttemptRequest'
             example:
-              versionId: '55555555-5555-5555-5555-555555555555'
+              versionId: 55555555-5555-5555-5555-555555555555
       responses:
         '201':
-          description: Попытка создана.
+          description: Попытка создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateTestAttemptResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security: []
+
+  /public/test-attempts/{attemptId}:
+    get:
+      tags: [PublicOnlineTests]
+      operationId: getTestAttempt
+      summary: Состояние попытки и результат (если завершена)
+      description: |
+        Требует `X-Attempt-Token`. Для незавершённой попытки `score` и `successful` = null.
+        Сервер сам рассчитывает результат; клиент не подменяет правильность.
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+        - $ref: '#/components/parameters/AttemptToken'
+      responses:
+        '200':
+          description: Состояние попытки
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TestAttemptResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security: []
 
   /public/test-attempts/{attemptId}/answers:
-    parameters:
-      - $ref: '#/components/parameters/AttemptId'
     post:
-      tags: [OnlineTests]
-      summary: Ответить на вопрос
+      tags: [PublicOnlineTests]
+      operationId: submitAttemptAnswer
+      summary: Зафиксировать ответ на вопрос
+      description: |
+        Создаёт AttemptAnswer. Вариант должен принадлежать вопросу версии попытки.
+        Повторный ответ на тот же вопрос → 409.
+        GET-семантика не применяется; операция идемпотентна при том же
+        Idempotency-Key ([проектное решение]).
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+        - $ref: '#/components/parameters/AttemptToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SubmitAnswerData'
+              $ref: '#/components/schemas/SubmitAttemptAnswerRequest'
             example:
-              questionId: '66666666-6666-6666-6666-666666666666'
-              answerOptionId: '77777777-7777-7777-7777-777777777777'
+              questionId: 66666666-6666-6666-6666-666666666666
+              answerOptionId: 77777777-7777-7777-7777-777777777777
       responses:
         '204':
-          description: Ответ зафиксирован.
+          description: Ответ зафиксирован
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security: []
 
   /public/test-attempts/{attemptId}/finish:
-    parameters:
-      - $ref: '#/components/parameters/AttemptId'
     post:
-      tags: [OnlineTests]
+      tags: [PublicOnlineTests]
+      operationId: finishTestAttempt
       summary: Завершить попытку и получить результат
+      description: |
+        Сервер рассчитывает `score` и `successful` по `successThreshold` версии.
+        При успехе может быть сформировано основание для выдачи промокода (TEST);
+        фактическая отправка выполняется асинхронно (не в этом ответе).
+        Код промокода публичному клиенту не возвращается — только статус основания.
+        Email получателя передаётся в теле, не в URL.
+      parameters:
+        - $ref: '#/components/parameters/AttemptId'
+        - $ref: '#/components/parameters/AttemptToken'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/FinishTestAttemptData'
+              $ref: '#/components/schemas/FinishTestAttemptRequest'
             example:
-              email: user@example.com
+              recipientEmail: user@example.com
       responses:
         '200':
-          description: Результат попытки.
+          description: Попытка завершена
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TestAttemptResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security: []
 
-  /public/promocodes/validate:
+  /integrations/commerce/promocodes/validate:
     post:
-      tags: [PromoCodes]
-      summary: Проверить промокод к товару
+      tags: [CommerceIntegrations]
+      operationId: validatePromoCodeForOrder
+      summary: Проверить применимость промокода к составу заказа
+      description: |
+        Инициатор: внешний торговый контур. Получатель: интеграционный API → ядро.
+        C1: Commerce → ProfIT (проверка кода по составу заказа).
+        Поддерживает несколько позиций. Цена из запроса не считается безусловно
+        достоверной: сервер сверяет товар с каталогом ProfIT и рассчитывает скидку
+        по авторитетным данным (при отсутствии товара в каталоге — отказ с причиной).
+        Активации не происходит. Эпики: E-3, E-5.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ValidatePromoCodeData'
+              $ref: '#/components/schemas/ValidatePromoCodeRequest'
             example:
               code: PROFIT-ABC-123
-              productId: '123e4567-e89b-12d3-a456-426655440000'
+              currency: RUB
+              items:
+                - productId: 123e4567-e89b-12d3-a456-426655440000
+                  quantity: 1
+                  unitPriceQuoted: '1490.00'
+                - productId: 123e4567-e89b-12d3-a456-426655440099
+                  quantity: 2
+                  unitPriceQuoted: '890.00'
       responses:
         '200':
-          description: Результат проверки.
+          description: Решение о применимости
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PromoCodeValidationResponse'
+                $ref: '#/components/schemas/ValidatePromoCodeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - CommerceApiKey: []
 
-  /public/promocodes/activate:
+  /integrations/commerce/purchases:
     post:
-      tags: [PromoCodes]
-      summary: Активировать промокод при покупке
+      tags: [CommerceIntegrations]
+      operationId: confirmPurchase
+      summary: Подтвердить покупку и при необходимости активировать промокод
+      description: |
+        Доверенное подтверждение покупки от торгового контура.
+        При наличии промокода выполняется однократная активация
+        (CREATED/READY_TO_ACTIVATE → ACTIVATED) только если:
+        - код в статусе READY_TO_ACTIVATE;
+        - не истёк expiresAt;
+        - позиции содержат товар целевой группы;
+        - код ещё не активирован.
+
+        Покупки без промокода также принимаются (для E-6).
+        Защита от повторов: Idempotency-Key + уникальность purchaseExternalId.
+        Публичная анонимная активация запрещена (критерий приёмки №1).
+        Эпики: E-3, E-5, E-6. Сущности: Purchase, PurchaseItem, PromoCode.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ActivatePromoCodeData'
+              $ref: '#/components/schemas/ConfirmPurchaseRequest'
             example:
-              code: PROFIT-ABC-123
-              purchaseId: '88888888-8888-8888-8888-888888888888'
-              finalAmount: 1341.00
+              purchaseExternalId: shop-order-10042
+              purchasedAt: '2026-10-16T14:30:00Z'
+              currency: RUB
+              promoCode: PROFIT-ABC-123
+              items:
+                - productId: 123e4567-e89b-12d3-a456-426655440000
+                  quantity: 1
+                  unitPrice: '1490.00'
+                  lineDiscountAmount: '149.00'
+                  lineTotal: '1341.00'
+              totals:
+                itemsSubtotal: '1490.00'
+                discountTotal: '149.00'
+                grandTotal: '1341.00'
       responses:
-        '200':
-          description: Промокод активирован.
+        '201':
+          description: Покупка зафиксирована (первая обработка)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PromoCodeActivationResponse'
+                $ref: '#/components/schemas/ConfirmPurchaseResponse'
+        '200':
+          description: Идемпотентный повтор — возвращён исходный результат
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmPurchaseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - CommerceApiKey: []
+
+  /integrations/commerce/sales:
+    post:
+      tags: [CommerceIntegrations]
+      operationId: submitSalesBatch
+      summary: Передать пакет продаж целевой товарной группы
+      description: |
+        Контракт для E-6: все продажи новой товарной группы, включая без промокода,
+        а также продажи контрольного (базового) периода (`periodType = BASELINE`).
+        C1/C2: Commerce → API → ядро.
+        Не заменяет confirmPurchase для активации кода: если продажа с кодом уже
+        подтверждена через /purchases, запись здесь служит аналитическим слепком
+        либо дополняет покупки без кода. Правила сверки — открытый вопрос.
+        Возвраты/отмены исторических данных **не** входят в MVP-контракт.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SalesBatchRequest'
+            example:
+              periodType: PROMO
+              sales:
+                - purchaseExternalId: shop-order-10042
+                  purchasedAt: '2026-10-16T14:30:00Z'
+                  currency: RUB
+                  promoCodeApplied: true
+                  promoCode: PROFIT-ABC-123
+                  items:
+                    - productId: 123e4567-e89b-12d3-a456-426655440000
+                      quantity: 1
+                      unitPrice: '1490.00'
+                      lineDiscountAmount: '149.00'
+                      lineTotal: '1341.00'
+                  totals:
+                    itemsSubtotal: '1490.00'
+                    discountTotal: '149.00'
+                    grandTotal: '1341.00'
+                - purchaseExternalId: shop-order-10055
+                  purchasedAt: '2026-10-16T15:00:00Z'
+                  currency: RUB
+                  promoCodeApplied: false
+                  items:
+                    - productId: 123e4567-e89b-12d3-a456-426655440000
+                      quantity: 1
+                      unitPrice: '1490.00'
+                      lineDiscountAmount: '0.00'
+                      lineTotal: '1490.00'
+                  totals:
+                    itemsSubtotal: '1490.00'
+                    discountTotal: '0.00'
+                    grandTotal: '1490.00'
+      responses:
+        '202':
+          description: Пакет принят к обработке
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesBatchAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - CommerceApiKey: []
+
+  /integrations/mail/provider-events:
+    post:
+      tags: [MailWebhooks]
+      operationId: receiveMailProviderEvent
+      summary: Webhook статусов почтового провайдера
+      description: |
+        HTTP-вход для Unisender Go ([проектный выбор]).
+        Принимает события принятия, доставки и ошибки.
+        Это **не** сообщение RabbitMQ: канал HTTP → CES → обновление
+        PromoSendAttempt / PromoCode в ядре (C2).
+
+        Правила:
+        - первое ACCEPTED до deliveryDeadlineAt задаёт sentAt и может перевести
+          промокод в READY_TO_ACTIVATE;
+        - DELIVERED ≠ accepted;
+        - запоздавшие события после ANNULLED/CANCELLED/ACTIVATED обновляют только
+          историю попытки;
+        - дедупликация по providerEventId / providerMessageId + type.
+
+        Ответ 202 означает приём webhook, а не факт доставки письма получателю.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MailProviderEventRequest'
+            examples:
+              accepted:
+                summary: Принято провайдером
+                value:
+                  providerEventId: evt-9f3a
+                  providerMessageId: msg-55aa
+                  eventType: ACCEPTED_BY_PROVIDER
+                  occurredAt: '2026-10-16T12:00:05Z'
+                  promoCodeId: 99999999-9999-9999-9999-999999999999
+                  sendAttemptId: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+              delivered:
+                summary: Доставлено
+                value:
+                  providerEventId: evt-9f3b
+                  providerMessageId: msg-55aa
+                  eventType: DELIVERED
+                  occurredAt: '2026-10-16T12:01:10Z'
+                  promoCodeId: 99999999-9999-9999-9999-999999999999
+                  sendAttemptId: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+              failed:
+                summary: Ошибка
+                value:
+                  providerEventId: evt-9f3c
+                  providerMessageId: msg-55aa
+                  eventType: FAILED
+                  occurredAt: '2026-10-16T12:00:20Z'
+                  promoCodeId: 99999999-9999-9999-9999-999999999999
+                  sendAttemptId: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+                  errorCode: BOUNCE
+                  errorMessage: Mailbox unavailable
+      responses:
+        '202':
+          description: Событие принято к обработке
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MailProviderEventAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - MailWebhookSignature: []
 
 components:
+  securitySchemes:
+    CommerceApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        [Проектное решение] Машинная аутентификация торгового контура.
+        Альтернатива для согласования: OAuth 2.0 Client Credentials (Bearer).
+        Не является штатной аутентификацией сотрудников BPMSoft.
+    MailWebhookSignature:
+      type: apiKey
+      in: header
+      name: X-Provider-Signature
+      description: |
+        [Проектное решение] HMAC-подпись тела webhook + timestamp
+        (`X-Provider-Timestamp`) для защиты от подделки и replay.
+        Конкретный алгоритм — по документации выбранного провайдера.
+
   parameters:
-    limit:
+    Limit:
       name: limit
       in: query
       required: false
@@ -666,9 +621,9 @@ components:
         type: integer
         format: int32
         minimum: 1
-        maximum: 1000
-        default: 10
-    offset:
+        maximum: 100
+        default: 20
+    Offset:
       name: offset
       in: query
       required: false
@@ -677,28 +632,15 @@ components:
         format: int32
         minimum: 0
         default: 0
-    locale:
+    AcceptLanguage:
       name: Accept-Language
       in: header
       required: false
       schema:
         type: string
-        pattern: '^[a-z]{2}-[A-Z]{2}$'
         example: ru-RU
-    TournamentId:
-      name: tournamentId
-      in: path
-      required: true
-      schema:
-        $ref: '#/components/schemas/UUID'
-    SessionId:
-      name: sessionId
-      in: path
-      required: true
-      schema:
-        $ref: '#/components/schemas/UUID'
-    RoundId:
-      name: roundId
+    ProductId:
+      name: productId
       in: path
       required: true
       schema:
@@ -709,122 +651,175 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/UUID'
-    VersionId:
-      name: versionId
-      in: path
-      required: true
-      schema:
-        $ref: '#/components/schemas/UUID'
     AttemptId:
       name: attemptId
       in: path
       required: true
       schema:
         $ref: '#/components/schemas/UUID'
-    PromoCodeId:
-      name: promoCodeId
-      in: path
+    AttemptToken:
+      name: X-Attempt-Token
+      in: header
       required: true
+      description: Токен доступа к конкретной попытке (выдаётся при создании)
       schema:
-        $ref: '#/components/schemas/UUID'
-    ProductId:
-      name: productId
-      in: path
+        type: string
+        minLength: 32
+        maxLength: 512
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
       required: true
+      description: Ключ идемпотентности для операций с побочными эффектами
       schema:
-        $ref: '#/components/schemas/UUID'
+        type: string
+        minLength: 8
+        maxLength: 128
+    IdempotencyKeyOptional:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
 
   responses:
     BadRequest:
-      description: Запрос некорректен или не проходит валидацию.
+      description: Некорректный запрос / ошибка валидации синтаксиса
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemResponse'
+            $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: 'about:blank'
-            title: 'Ошибка валидации запроса'
-            status: '400'
-            detail: 'Один или несколько параметров запроса не прошли валидацию.'
+            type: https://profit.example.local/problems/validation
+            title: Ошибка валидации запроса
+            status: 400
+            detail: Один или несколько параметров не прошли валидацию.
             violations:
-              - code: 'VALIDATION_ERROR'
-                field: 'someField'
-                detail: 'Значение поля не соответствует требованиям.'
-
+              - code: VALIDATION_ERROR
+                field: items
+                detail: Массив позиций не должен быть пустым.
     Unauthorized:
-      description: Требуется аутентификация.
+      description: Требуется аутентификация
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemResponse'
+            $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: 'about:blank'
-            title: 'Не аутентифицирован'
-            status: '401'
-            detail: 'Отсутствует или истёк токен доступа.'
-
+            type: https://profit.example.local/problems/unauthorized
+            title: Не аутентифицирован
+            status: 401
+            detail: Отсутствует или недействителен ключ доступа.
     Forbidden:
-      description: Недостаточно прав для выполнения операции.
+      description: Недостаточно прав
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemResponse'
+            $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: 'about:blank'
-            title: 'Доступ запрещён'
-            status: '403'
-            detail: 'Операция недоступна для текущей роли.'
-
+            type: https://profit.example.local/problems/forbidden
+            title: Доступ запрещён
+            status: 403
+            detail: Операция недоступна для текущего субъекта.
     NotFound:
-      description: Ресурс не найден.
+      description: Ресурс не найден
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemResponse'
+            $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: 'about:blank'
-            title: 'Ресурс не найден'
-            status: '404'
-            detail: 'Запрошенный ресурс не существует.'
-
+            type: https://profit.example.local/problems/not-found
+            title: Ресурс не найден
+            status: 404
+            detail: Запрошенный ресурс не существует или недоступен.
     Conflict:
-      description: Конфликт состояния ресурса.
+      description: Конфликт состояния
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemResponse'
+            $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: 'about:blank'
-            title: 'Конфликт состояния'
-            status: '409'
-            detail: 'Операция не может быть выполнена в текущем состоянии ресурса.'
-
+            type: https://profit.example.local/problems/conflict
+            title: Конфликт состояния
+            status: 409
+            detail: Операция невозможна в текущем состоянии ресурса.
+    UnprocessableEntity:
+      description: Семантическая / бизнес-ошибка
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://profit.example.local/problems/business-rule
+            title: Нарушение бизнес-правила
+            status: 422
+            detail: Промокод не применим к составу заказа.
+            violations:
+              - code: PROMO_PRODUCT_GROUP_MISMATCH
+                field: items
+                detail: Нет позиций целевой товарной группы.
+    TooManyRequests:
+      description: Превышен лимит запросов
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://profit.example.local/problems/rate-limit
+            title: Слишком много запросов
+            status: 429
+            detail: Повторите запрос позже.
     InternalServerError:
-      description: Внутренняя ошибка сервера.
+      description: Внутренняя ошибка
       content:
         application/problem+json:
           schema:
-            $ref: '#/components/schemas/ProblemResponse'
+            $ref: '#/components/schemas/ProblemDetails'
           example:
-            type: 'about:blank'
-            title: 'Внутренняя ошибка сервера'
-            status: '500'
-            detail: 'Не удалось обработать запрос.'
+            type: https://profit.example.local/problems/internal
+            title: Внутренняя ошибка сервера
+            status: 500
+            detail: Не удалось обработать запрос.
+    ServiceUnavailable:
+      description: Сервис временно недоступен
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          example:
+            type: https://profit.example.local/problems/unavailable
+            title: Сервис недоступен
+            status: 503
+            detail: Повторите запрос позже.
 
   schemas:
     UUID:
       type: string
+      format: uuid
       pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-      example: '123e4567-e89b-12d3-a456-426655440000'
+      example: 123e4567-e89b-12d3-a456-426655440000
 
-    PaginationData:
+    MoneyDecimal:
+      type: string
+      description: Денежная сумма (RUB), decimal scale=2, без float
+      pattern: '^-?\d+\.\d{2}$'
+      example: '1490.00'
+
+    CurrencyCode:
+      type: string
+      enum: [RUB]
+      example: RUB
+
+    PaginationMeta:
       type: object
+      required: [limit, offset, totalCount]
       properties:
         limit:
           type: integer
           format: int32
           minimum: 1
-          example: 25
+          example: 20
         offset:
           type: integer
           format: int32
@@ -834,344 +829,176 @@ components:
           type: integer
           format: int32
           minimum: 0
-          example: 252
-      required: [limit, offset, totalCount]
+          example: 42
 
-    ViolationData:
+    Violation:
       type: object
+      required: [code]
       properties:
         code:
           type: string
-          maxLength: 255
-          example: 'VALIDATION_ERROR'
+          maxLength: 128
+          example: VALIDATION_ERROR
         field:
           type: string
           maxLength: 255
-          example: 'someField'
+          example: items[0].productId
         detail:
           type: string
-          maxLength: 65535
-          example: 'Значение поля не соответствует требованиям.'
-      required: [code]
+          maxLength: 2048
+          example: Значение поля не соответствует требованиям.
 
-    ProblemResponse:
-      description: Problem details serialized according to RFC 7807.
+    ProblemDetails:
       type: object
+      description: RFC 9457 Problem Details
+      required: [type, title, status, detail]
       properties:
         type:
           type: string
+          format: uri
           maxLength: 2048
-          example: 'about:blank'
+          example: https://profit.example.local/problems/validation
         title:
           type: string
           maxLength: 255
-          example: 'Ошибка валидации запроса'
         status:
-          type: string
-          pattern: '^[0-9]{3}$'
+          type: integer
+          format: int32
+          minimum: 100
+          maximum: 599
+          example: 400
         detail:
           type: string
           maxLength: 65535
+        instance:
+          type: string
+          format: uri
+          maxLength: 2048
         violations:
           type: array
           items:
-            $ref: '#/components/schemas/ViolationData'
-      required: [type, title, status, detail]
+            $ref: '#/components/schemas/Violation'
+        correlationId:
+          type: string
+          maxLength: 128
 
-    LoginRequest:
+    PublicProductGroup:
       type: object
-      properties:
-        login:
-          type: string
-          maxLength: 255
-        password:
-          type: string
-          maxLength: 255
-      required: [login, password]
-
-    Role:
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/UUID'
-        name:
-          type: string
-          enum: [Сотрудник, Владелец]
       required: [id, name]
-
-    LoginResponse:
-      type: object
-      properties:
-        token:
-          type: string
-        expiresIn:
-          type: integer
-        role:
-          $ref: '#/components/schemas/Role'
-      required: [token, expiresIn, role]
-
-    TournamentStatus:
-      type: string
-      enum: [Планируется, Идёт, Завершён]
-
-    Tournament:
-      type: object
       properties:
         id:
           $ref: '#/components/schemas/UUID'
         name:
           type: string
           maxLength: 255
-        heldAt:
-          type: string
-          format: date-time
-        status:
-          $ref: '#/components/schemas/TournamentStatus'
-        productId:
-          $ref: '#/components/schemas/UUID'
-      required: [id, name, heldAt, status, productId]
+          example: Настольные игры и паззлы
 
-    UpdateTournamentData:
+    PublicProduct:
       type: object
+      description: Публичная карточка Product (без служебных полей)
+      required: [id, name, description, price, currency, productGroup]
       properties:
+        id:
+          $ref: '#/components/schemas/UUID'
         name:
           type: string
           maxLength: 255
-        heldAt:
+          example: 'Крокодил: семейная версия'
+        description:
           type: string
-          format: date-time
-        status:
-          $ref: '#/components/schemas/TournamentStatus'
-        productId:
-          $ref: '#/components/schemas/UUID'
+          maxLength: 65535
+        price:
+          $ref: '#/components/schemas/MoneyDecimal'
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        productGroup:
+          $ref: '#/components/schemas/PublicProductGroup'
 
-    TournamentResponse:
+    PublicProductResponse:
       type: object
+      required: [data]
       properties:
         data:
-          $ref: '#/components/schemas/Tournament'
-      required: [data]
+          $ref: '#/components/schemas/PublicProduct'
 
-    TournamentListResponse:
+    PublicProductListResponse:
       type: object
+      required: [data, meta]
       properties:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/Tournament'
+            $ref: '#/components/schemas/PublicProduct'
         meta:
           type: object
+          required: [pagination]
           properties:
             pagination:
-              $ref: '#/components/schemas/PaginationData'
-          required: [pagination]
+              $ref: '#/components/schemas/PaginationMeta'
+
+    PublicOnlineTest:
+      type: object
+      required: [id, name, publishedVersionId]
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        name:
+          type: string
+          maxLength: 255
+          example: Тест о настольных играх
+        publishedVersionId:
+          $ref: '#/components/schemas/UUID'
+
+    PublicOnlineTestListResponse:
+      type: object
       required: [data, meta]
-
-    GameSessionStatus:
-      type: string
-      enum: [Черновик, Идёт, Завершена]
-
-    GameSession:
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/UUID'
-        tournamentId:
-          $ref: '#/components/schemas/UUID'
-        startedAt:
-          type: string
-          format: date-time
-          nullable: true
-        finishedAt:
-          type: string
-          format: date-time
-          nullable: true
-        status:
-          $ref: '#/components/schemas/GameSessionStatus'
-        winnerParticipantId:
-          $ref: '#/components/schemas/UUID'
-          nullable: true
-      required: [id, tournamentId, status]
-
-    CreateGameSessionData:
-      type: object
-      properties:
-        participantIds:
-          type: array
-          items:
-            $ref: '#/components/schemas/UUID'
-
-    GameSessionResponse:
-      type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/GameSession'
-      required: [data]
-
-    SessionParticipant:
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/UUID'
-        name:
-          type: string
-          maxLength: 255
-        email:
-          type: string
-          format: email
-          maxLength: 255
-      required: [id, name, email]
-
-    AddParticipantData:
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 255
-        email:
-          type: string
-          format: email
-          maxLength: 255
-      required: [name, email]
-
-    SessionParticipantResponse:
-      type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/SessionParticipant'
-      required: [data]
-
-    GameRoundStatus:
-      type: string
-      enum: [Черновик, Идёт, Завершён]
-
-    GameRound:
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/UUID'
-        sessionId:
-          $ref: '#/components/schemas/UUID'
-        number:
-          type: integer
-        status:
-          $ref: '#/components/schemas/GameRoundStatus'
-        winnerParticipantId:
-          $ref: '#/components/schemas/UUID'
-          nullable: true
-      required: [id, sessionId, number, status]
-
-    CreateGameRoundData:
-      type: object
-      properties:
-        number:
-          type: integer
-
-    GameRoundResponse:
-      type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/GameRound'
-      required: [data]
-
-    RepresentationMethod:
-      type: string
-      enum: [Пантомима, Рисунок, Объяснение_словами]
-
-    GameTurn:
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/UUID'
-        roundId:
-          $ref: '#/components/schemas/UUID'
-        explainerParticipantId:
-          $ref: '#/components/schemas/UUID'
-        guesserParticipantId:
-          $ref: '#/components/schemas/UUID'
-          nullable: true
-        wordId:
-          $ref: '#/components/schemas/UUID'
-        representationMethod:
-          $ref: '#/components/schemas/RepresentationMethod'
-        guessed:
-          type: boolean
-        explainerPoints:
-          type: integer
-        guesserPoints:
-          type: integer
-      required:
-        - id
-        - roundId
-        - explainerParticipantId
-        - wordId
-        - representationMethod
-        - guessed
-        - explainerPoints
-        - guesserPoints
-
-    CreateGameTurnData:
-      type: object
-      properties:
-        explainerParticipantId:
-          $ref: '#/components/schemas/UUID'
-        guesserParticipantId:
-          $ref: '#/components/schemas/UUID'
-        wordId:
-          $ref: '#/components/schemas/UUID'
-        representationMethod:
-          $ref: '#/components/schemas/RepresentationMethod'
-        guessed:
-          type: boolean
-      required: [explainerParticipantId, wordId, representationMethod, guessed]
-
-    GameTurnResponse:
-      type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/GameTurn'
-      required: [data]
-
-    OnlineTest:
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/UUID'
-        name:
-          type: string
-          maxLength: 255
-      required: [id, name]
-
-    UpdateOnlineTestData:
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 255
-      required: [name]
-
-    OnlineTestResponse:
-      type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/OnlineTest'
-      required: [data]
-
-    OnlineTestListResponse:
-      type: object
       properties:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/OnlineTest'
-      required: [data]
+            $ref: '#/components/schemas/PublicOnlineTest'
+        meta:
+          type: object
+          required: [pagination]
+          properties:
+            pagination:
+              $ref: '#/components/schemas/PaginationMeta'
 
-    TestVersionStatus:
-      type: string
-      enum: [Черновик, Опубликована, Архивная]
-
-    TestVersion:
+    PublicAnswerOption:
       type: object
+      description: Вариант ответа без признака correct
+      required: [id, text, order]
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        text:
+          type: string
+          maxLength: 2000
+        order:
+          type: integer
+          minimum: 1
+
+    PublicTestQuestion:
+      type: object
+      required: [id, text, order, options]
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        text:
+          type: string
+          maxLength: 4000
+        order:
+          type: integer
+          minimum: 1
+        options:
+          type: array
+          minItems: 2
+          items:
+            $ref: '#/components/schemas/PublicAnswerOption'
+
+    PublishedTestVersion:
+      type: object
+      required: [id, testId, versionNumber, status, successThreshold, questions]
       properties:
         id:
           $ref: '#/components/schemas/UUID'
@@ -1179,44 +1006,75 @@ components:
           $ref: '#/components/schemas/UUID'
         versionNumber:
           type: integer
+          minimum: 1
         status:
-          $ref: '#/components/schemas/TestVersionStatus'
+          type: string
+          enum: [PUBLISHED]
+          description: Публичному API доступна только опубликованная версия
         successThreshold:
           type: integer
+          minimum: 1
+          description: Обязателен для опубликованной версии
+          example: 3
         publishedAt:
           type: string
           format: date-time
-          nullable: true
-      required: [id, testId, versionNumber, status, successThreshold]
+        questions:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PublicTestQuestion'
 
-    CreateTestVersionData:
+    PublishedTestVersionResponse:
       type: object
-      properties:
-        successThreshold:
-          type: integer
-      required: [successThreshold]
-
-    TestVersionResponse:
-      type: object
+      required: [data]
       properties:
         data:
-          $ref: '#/components/schemas/TestVersion'
-      required: [data]
+          $ref: '#/components/schemas/PublishedTestVersion'
 
-    StartTestAttemptData:
+    CreateTestAttemptRequest:
       type: object
+      required: [versionId]
       properties:
         versionId:
           $ref: '#/components/schemas/UUID'
-      required: [versionId]
+
+    CreateTestAttemptResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [attemptId, versionId, startedAt, attemptToken, attemptTokenExpiresAt]
+          properties:
+            attemptId:
+              $ref: '#/components/schemas/UUID'
+            versionId:
+              $ref: '#/components/schemas/UUID'
+            startedAt:
+              type: string
+              format: date-time
+            attemptToken:
+              type: string
+              description: Секрет доступа к попытке; не логировать на клиенте в открытом виде
+            attemptTokenExpiresAt:
+              type: string
+              format: date-time
+
+    TestAttemptStatus:
+      type: string
+      enum: [IN_PROGRESS, FINISHED]
 
     TestAttempt:
       type: object
+      required: [id, versionId, status, startedAt]
       properties:
         id:
           $ref: '#/components/schemas/UUID'
         versionId:
           $ref: '#/components/schemas/UUID'
+        status:
+          $ref: '#/components/schemas/TestAttemptStatus'
         startedAt:
           type: string
           format: date-time
@@ -1227,365 +1085,374 @@ components:
         score:
           type: integer
           nullable: true
+          description: null пока попытка не завершена
         successful:
           type: boolean
           nullable: true
-      required: [id, versionId, startedAt]
+          description: null пока попытка не завершена
 
     TestAttemptResponse:
       type: object
+      required: [data]
       properties:
         data:
           $ref: '#/components/schemas/TestAttempt'
-      required: [data]
 
-    SubmitAnswerData:
+    SubmitAttemptAnswerRequest:
       type: object
+      required: [questionId, answerOptionId]
       properties:
         questionId:
           $ref: '#/components/schemas/UUID'
         answerOptionId:
           $ref: '#/components/schemas/UUID'
-      required: [questionId, answerOptionId]
 
-    FinishTestAttemptData:
+    FinishTestAttemptRequest:
       type: object
+      required: [recipientEmail]
       properties:
-        email:
-          type: string
-          format: email
-          maxLength: 255
-      required: [email]
-
-    TestAttemptResult:
-      type: object
-      properties:
-        attempt:
-          $ref: '#/components/schemas/TestAttempt'
-        promoCodeId:
-          $ref: '#/components/schemas/UUID'
-          nullable: true
-      required: [attempt]
-
-    TestAttemptResultResponse:
-      type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/TestAttemptResult'
-      required: [data]
-
-    PromoStatus:
-      type: string
-      enum: [Создан, Доступен_к_активации, Активирован, Отменён, Аннулирован]
-
-    PromoSource:
-      type: string
-      enum: [Игра, Тест]
-
-    DeliveryStatus:
-      type: string
-      enum: [Создана, Отправлена, Доставлена, Ошибка]
-
-    PromoCode:
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/UUID'
-        code:
-          type: string
-          maxLength: 255
         recipientEmail:
           type: string
           format: email
           maxLength: 255
-        source:
-          $ref: '#/components/schemas/PromoSource'
-        status:
-          $ref: '#/components/schemas/PromoStatus'
-        productGroupId:
+          description: Email для возможной выдачи промокода при успехе
+
+    PromoIssuanceStatus:
+      type: string
+      enum: [NOT_APPLICABLE, QUEUED, SKIPPED]
+      description: |
+        NOT_APPLICABLE — попытка неуспешна;
+        QUEUED — основание создано, отправка асинхронна;
+        SKIPPED — успех, но выдача не требуется/невозможна по правилам.
+
+    TestAttemptResult:
+      type: object
+      required: [attempt, promoIssuanceStatus]
+      properties:
+        attempt:
+          $ref: '#/components/schemas/TestAttempt'
+        promoIssuanceStatus:
+          $ref: '#/components/schemas/PromoIssuanceStatus'
+
+    TestAttemptResultResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/TestAttemptResult'
+
+    PromoCodeStatus:
+      type: string
+      description: Жизненный цикл PromoCode
+      enum: [CREATED, READY_TO_ACTIVATE, ACTIVATED, CANCELLED, ANNULLED]
+
+    PromoGround:
+      type: string
+      description: Ровно одно основание выдачи
+      enum: [GAME, TEST]
+
+    PromoRejectionReason:
+      type: string
+      enum:
+        - CODE_NOT_FOUND
+        - CODE_NOT_READY
+        - CODE_EXPIRED
+        - CODE_CANCELLED
+        - CODE_ANNULLED
+        - CODE_ALREADY_ACTIVATED
+        - PRODUCT_GROUP_MISMATCH
+        - EMPTY_ORDER
+        - PRODUCT_UNKNOWN
+        - CURRENCY_UNSUPPORTED
+
+    ValidatePromoCodeRequest:
+      type: object
+      required: [code, currency, items]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 255
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderLineQuote'
+
+    OrderLineQuote:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId:
           $ref: '#/components/schemas/UUID'
+        quantity:
+          type: integer
+          minimum: 1
+        unitPriceQuoted:
+          allOf:
+            - $ref: '#/components/schemas/MoneyDecimal'
+          description: Цена из запроса магазина — справочная, не авторитетная
+
+    ApplicableLineDiscount:
+      type: object
+      required: [productId, quantity, unitPriceAuthoritative, discountPercent, lineDiscountAmount]
+      properties:
+        productId:
+          $ref: '#/components/schemas/UUID'
+        quantity:
+          type: integer
+          minimum: 1
+        unitPriceAuthoritative:
+          $ref: '#/components/schemas/MoneyDecimal'
         discountPercent:
           type: number
           minimum: 0
           maximum: 100
-        validityDays:
-          type: integer
-          minimum: 1
-        createdAt:
-          type: string
-          format: date-time
-        sentAt:
-          type: string
-          format: date-time
-          nullable: true
-        expiresAt:
-          type: string
-          format: date-time
-          nullable: true
-        activatedAt:
-          type: string
-          format: date-time
-          nullable: true
-        cancelledAt:
-          type: string
-          format: date-time
-          nullable: true
-        annulledAt:
-          type: string
-          format: date-time
-          nullable: true
-        cancellationReason:
-          type: string
-          maxLength: 65535
-          nullable: true
-      required:
-        - id
-        - code
-        - recipientEmail
-        - source
-        - status
-        - productGroupId
-        - discountPercent
-        - validityDays
-        - createdAt
+          multipleOf: 0.01
+        lineDiscountAmount:
+          $ref: '#/components/schemas/MoneyDecimal'
 
-    PromoCodeResponse:
+    ValidatePromoCodeResult:
       type: object
+      required: [applicable, reasons]
       properties:
-        data:
-          $ref: '#/components/schemas/PromoCode'
-      required: [data]
-
-    PromoCodeListResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/PromoCode'
-        meta:
-          type: object
-          properties:
-            pagination:
-              $ref: '#/components/schemas/PaginationData'
-          required: [pagination]
-      required: [data, meta]
-
-    CancelPromoCodeData:
-      type: object
-      properties:
-        reason:
-          type: string
-          maxLength: 65535
-      required: [reason]
-
-    PromoSendAttempt:
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/UUID'
-        promoCodeId:
-          $ref: '#/components/schemas/UUID'
-        attemptedAt:
-          type: string
-          format: date-time
-        status:
-          $ref: '#/components/schemas/DeliveryStatus'
-        providerMessageId:
-          type: string
-          nullable: true
-        deliveredAt:
-          type: string
-          format: date-time
-          nullable: true
-        errorMessage:
-          type: string
-          nullable: true
-      required: [id, promoCodeId, attemptedAt, status]
-
-    PromoSendAttemptResponse:
-      type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/PromoSendAttempt'
-      required: [data]
-
-    ValidatePromoCodeData:
-      type: object
-      properties:
-        code:
-          type: string
-          maxLength: 255
-        productId:
-          $ref: '#/components/schemas/UUID'
-      required: [code, productId]
-
-    PromoCodeValidationResult:
-      type: object
-      properties:
-        valid:
+        applicable:
           type: boolean
+        promoCodeStatus:
+          $ref: '#/components/schemas/PromoCodeStatus'
+        productGroupId:
+          $ref: '#/components/schemas/UUID'
+          nullable: true
         discountPercent:
           type: number
           nullable: true
-        reason:
-          type: string
-          maxLength: 65535
+          minimum: 0
+          maximum: 100
+        lineDiscounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApplicableLineDiscount'
+        discountTotal:
+          $ref: '#/components/schemas/MoneyDecimal'
           nullable: true
-      required: [valid]
+        reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/PromoRejectionReason'
+          description: Пусто при applicable=true; иначе коды отказа
 
-    PromoCodeValidationResponse:
+    ValidatePromoCodeResponse:
       type: object
+      required: [data]
       properties:
         data:
-          $ref: '#/components/schemas/PromoCodeValidationResult'
-      required: [data]
+          $ref: '#/components/schemas/ValidatePromoCodeResult'
 
-    ActivatePromoCodeData:
+    PurchaseLine:
       type: object
+      required: [productId, quantity, unitPrice, lineDiscountAmount, lineTotal]
       properties:
-        code:
+        productId:
+          $ref: '#/components/schemas/UUID'
+        quantity:
+          type: integer
+          minimum: 1
+        unitPrice:
+          $ref: '#/components/schemas/MoneyDecimal'
+        lineDiscountAmount:
+          $ref: '#/components/schemas/MoneyDecimal'
+          description: Скидка по позиции (lineDiscountAmount доменной модели)
+        lineTotal:
+          $ref: '#/components/schemas/MoneyDecimal'
+
+    PurchaseTotals:
+      type: object
+      required: [itemsSubtotal, discountTotal, grandTotal]
+      properties:
+        itemsSubtotal:
+          $ref: '#/components/schemas/MoneyDecimal'
+        discountTotal:
+          $ref: '#/components/schemas/MoneyDecimal'
+        grandTotal:
+          $ref: '#/components/schemas/MoneyDecimal'
+
+    ConfirmPurchaseRequest:
+      type: object
+      required: [purchaseExternalId, purchasedAt, currency, items, totals]
+      properties:
+        purchaseExternalId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Уникальный идентификатор покупки во внешней системе
+        purchasedAt:
+          type: string
+          format: date-time
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        promoCode:
           type: string
           maxLength: 255
+          nullable: true
+          description: null/absent — покупка без промокода
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PurchaseLine'
+        totals:
+          $ref: '#/components/schemas/PurchaseTotals'
+
+    PurchaseConfirmationStatus:
+      type: string
+      enum:
+        - RECORDED
+        - RECORDED_AND_PROMO_ACTIVATED
+        - RECORDED_PROMO_SKIPPED
+
+    ConfirmPurchaseResult:
+      type: object
+      required: [purchaseId, purchaseExternalId, status, purchasedAt]
+      properties:
         purchaseId:
           $ref: '#/components/schemas/UUID'
-        finalAmount:
-          type: number
-      required: [code, purchaseId, finalAmount]
-
-    PromoCodeActivationResult:
-      type: object
-      properties:
+          description: Внутренний идентификатор Purchase в ProfIT
+        purchaseExternalId:
+          type: string
+        status:
+          $ref: '#/components/schemas/PurchaseConfirmationStatus'
+        purchasedAt:
+          type: string
+          format: date-time
         promoCodeId:
           $ref: '#/components/schemas/UUID'
-        purchaseId:
-          $ref: '#/components/schemas/UUID'
+          nullable: true
+        promoCodeStatus:
+          $ref: '#/components/schemas/PromoCodeStatus'
+          nullable: true
         activatedAt:
           type: string
           format: date-time
-        discountAmount:
-          type: number
-      required: [promoCodeId, purchaseId, activatedAt, discountAmount]
+          nullable: true
+        discountTotal:
+          $ref: '#/components/schemas/MoneyDecimal'
+          nullable: true
 
-    PromoCodeActivationResponse:
+    ConfirmPurchaseResponse:
       type: object
-      properties:
-        data:
-          $ref: '#/components/schemas/PromoCodeActivationResult'
       required: [data]
-
-    ProductGroup:
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/UUID'
-        name:
-          type: string
-          maxLength: 255
-      required: [id, name]
-
-    Product:
-      type: object
-      properties:
-        id:
-          $ref: '#/components/schemas/UUID'
-        name:
-          type: string
-          maxLength: 255
-        description:
-          type: string
-          maxLength: 65535
-        price:
-          type: number
-        theme:
-          type: string
-          maxLength: 255
-        productGroupId:
-          $ref: '#/components/schemas/UUID'
-        published:
-          type: boolean
-      required: [id, name, description, price, productGroupId, published]
-
-    UpdateProductData:
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 255
-        description:
-          type: string
-          maxLength: 65535
-        price:
-          type: number
-        theme:
-          type: string
-          maxLength: 255
-        productGroupId:
-          $ref: '#/components/schemas/UUID'
-        published:
-          type: boolean
-
-    ProductResponse:
-      type: object
       properties:
         data:
-          $ref: '#/components/schemas/Product'
-      required: [data]
+          $ref: '#/components/schemas/ConfirmPurchaseResult'
 
-    ProductListResponse:
+    SalesPeriodType:
+      type: string
+      enum: [PROMO, BASELINE]
+      description: PROMO — период акции; BASELINE — контрольный период для E-6
+
+    SaleRecord:
       type: object
+      required: [purchaseExternalId, purchasedAt, currency, promoCodeApplied, items, totals]
       properties:
-        data:
+        purchaseExternalId:
+          type: string
+          maxLength: 128
+        purchasedAt:
+          type: string
+          format: date-time
+        currency:
+          $ref: '#/components/schemas/CurrencyCode'
+        promoCodeApplied:
+          type: boolean
+        promoCode:
+          type: string
+          maxLength: 255
+          nullable: true
+        items:
           type: array
+          minItems: 1
           items:
-            $ref: '#/components/schemas/Product'
-        meta:
-          type: object
-          properties:
-            pagination:
-              $ref: '#/components/schemas/PaginationData'
-          required: [pagination]
-      required: [data, meta]
+            $ref: '#/components/schemas/PurchaseLine'
+        totals:
+          $ref: '#/components/schemas/PurchaseTotals'
 
-    PromoStatusReportResponse:
+    SalesBatchRequest:
       type: object
+      required: [periodType, sales]
+      properties:
+        periodType:
+          $ref: '#/components/schemas/SalesPeriodType'
+        sales:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/SaleRecord'
+
+    SalesBatchAcceptedResponse:
+      type: object
+      required: [data]
       properties:
         data:
           type: object
+          required: [acceptedCount, batchId]
           properties:
-            created:
+            batchId:
+              $ref: '#/components/schemas/UUID'
+            acceptedCount:
               type: integer
-            availableForActivation:
-              type: integer
-            activated:
-              type: integer
-            cancelled:
-              type: integer
-            annulled:
-              type: integer
-          required: [created, availableForActivation, activated, cancelled, annulled]
-      required: [data]
+              minimum: 1
 
-    PromoCohortReportResponse:
+    MailProviderEventType:
+      type: string
+      enum: [ACCEPTED_BY_PROVIDER, DELIVERED, FAILED]
+      description: Соответствует переходам PromoSendAttempt (не путать с статусом PromoCode)
+
+    MailProviderEventRequest:
       type: object
+      required: [providerEventId, providerMessageId, eventType, occurredAt]
+      properties:
+        providerEventId:
+          type: string
+          maxLength: 128
+          description: Уникальный id события провайдера (ключ дедупликации)
+        providerMessageId:
+          type: string
+          maxLength: 128
+        eventType:
+          $ref: '#/components/schemas/MailProviderEventType'
+        occurredAt:
+          type: string
+          format: date-time
+        promoCodeId:
+          $ref: '#/components/schemas/UUID'
+        sendAttemptId:
+          $ref: '#/components/schemas/UUID'
+        errorCode:
+          type: string
+          maxLength: 64
+          nullable: true
+        errorMessage:
+          type: string
+          maxLength: 2048
+          nullable: true
+
+    MailProviderEventAcceptedResponse:
+      type: object
+      required: [data]
       properties:
         data:
           type: object
+          required: [accepted, providerEventId]
           properties:
-            totalIssued:
-              type: integer
-            activatedInSamePeriod:
-              type: integer
-            activatedInNextPeriod:
-              type: integer
-            activationRateSamePeriod:
-              type: number
-            activationRateNextPeriod:
-              type: number
-          required:
-            - totalIssued
-            - activatedInSamePeriod
-            - activatedInNextPeriod
-            - activationRateSamePeriod
-            - activationRateNextPeriod
-      required: [data]
+            accepted:
+              type: boolean
+              example: true
+            providerEventId:
+              type: string
+            duplicate:
+              type: boolean
+              description: true, если событие уже обрабатывалось
+              default: false
