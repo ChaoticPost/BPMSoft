@@ -7,7 +7,8 @@
     "check": "node scripts/check-specs.js",
     "lint:openapi": "redocly lint openapi.yaml",
     "mock": "prism mock openapi.yaml -p 4010 -h 127.0.0.1",
-    "smoke": "node scripts/smoke-mock.js"
+    "smoke": "node scripts/smoke-mock.js",
+    "evidence": "bash scripts/run-evidence.sh"
   },
   "devDependencies": {
     "@apidevtools/swagger-parser": "^12.1.0",
