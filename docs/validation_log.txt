@@ -1,0 +1,68 @@
+=== ProfIT spec validation ===
+date: 2026-10-24T20:28:14.061Z
+node: v24.18.0
+npm: 11.16.0
+prism: 5.16.0
+@apidevtools/swagger-parser: 12.1.0
+@asyncapi/parser: 3.6.5
+git HEAD: 36c7789d3f03dff1a5331b87fe66172746794c3d
+git working tree: DIRTY (uncommitted changes)
+git write-tree: 5a70fa11b6788416486363bb0dd96a211d1480be
+
+OpenAPI  OK  3.0.3  paths=12  ops=12
+  securitySchemes: CommerceApiKey, MailWebhookSignature, AttemptTokenAuth
+  servers: https://profit-dev.example.local/api/v1 | https://profit-test.example.local/api/v1
+AsyncAPI OK  3.0.0  channels=5  ops=10
+
+All checks passed.
+
+NOTE: YAML/отчёт ещё не в одном коммите — закоммитьте и снова npm run check.
+
+Log saved: /Users/daria/Code/Projects/BPMSoft/docs/validation_log.txt
+
+=== working tree ===
+date: 2026-10-24T20:28:14Z
+git status --short:
+ M README.md
+ M asyncapi.yaml
+ M docs/ProfIT_API_design_analysis.md
+ M openapi.yaml
+ M package.json
+ M scripts/check-specs.js
+ M scripts/smoke-mock.js
+?? docs/teacher_review_fixes.md
+?? docs/validation_log.txt
+?? scripts/run-evidence.sh
+git write-tree (content fingerprint): 5a70fa11b6788416486363bb0dd96a211d1480be
+
+=== smoke (mock) ===
+date: 2026-10-24T20:28:15Z
+
+> smoke
+> node scripts/smoke-mock.js
+
+Smoke → http://127.0.0.1:4010
+NOTE: Prefer:* cases validate response shapes from OpenAPI examples.
+
+=== positive ===
+
+→ GET  /public/products ... OK (200)
+→ POST /public/test-attempts ... OK (201)
+→ GET attempt WITH X-Attempt-Token ... OK (200)
+→ POST commerce validate (happy) ... OK (200)
+→ POST commerce purchases (happy) ... OK (200)
+→ POST mail provider-events (happy) ... OK (202)
+
+=== negative (teacher checklist) ===
+
+→ [token] GET attempt WITHOUT X-Attempt-Token → 401 ... OK (401)
+→ [auth] validate WITHOUT X-API-Key → 401 ... OK (401)
+→ [rate-limit] Prefer 429 on createTestAttempt + Retry-After ... OK (429 Retry-After=60)
+→ [product-group] Prefer 422 validate (PROMO_PRODUCT_GROUP_MISMATCH shape) ... OK (422)
+→ [expired/activated] Prefer 422 validate (business reject shape) ... OK (422)
+→ [idempotency duplicate] Prefer 409 on purchases ... OK (409)
+→ [idempotency key too short] purchases → 400/422 ... OK (422)
+→ [provider-event duplicate] Prefer 409 on mail webhook ... OK (409)
+
+Smoke OK
+LIMIT: Prism Prefer/examples ≠ исполнение правил ядра BPMSoft.
