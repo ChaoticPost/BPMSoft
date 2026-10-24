@@ -10,29 +10,65 @@ info:
     `ядро BPMSoft → RabbitMQ ([проектная схема]) → планировщик/воркеры →
     CES → Unisender Go → webhook HTTP → CES → ядро BPMSoft`
 
+    ## Связанный REST
+    Webhook провайдера (не брокер): OpenAPI `openapi.yaml`, операция
+    `POST /integrations/mail/provider-events` (`receiveMailProviderEvent`).
+
     ## Что входит
     Минимальный набор сообщений брокера для E-3:
     - команды постановки/повтора отправки промокода;
     - отложенные проверки DISPATCH_TIMEOUT и VALIDITY_EXPIRED;
     - доменное событие активации промокода ([проектное решение], outbox).
 
-    ## Что не входит
-    - Webhook провайдера — HTTP-контракт (см. `openapi.yaml`
-      `/integrations/mail/provider-events`), не канал RabbitMQ.
-    - Обновление PromoSendAttempt CES→ядро — внутренняя операция BPMSoft.
-    - Административные CRUD-события «на каждое поле» — исключены.
+    ## ADR: команда на каждый промокод vs периодическая выборка
+    **Принято (гибрид):**
+    1. **Первая отправка и retry** — *команда на каждый PromoCode* через
+       Transactional Outbox (`promocodes.dispatch.requested.v1` /
+       `...retry.requested.v1`). Гарантирует постановку без потери при
+       сбое между commit БД и брокером.
+    2. **DISPATCH_TIMEOUT и VALIDITY_EXPIRED** — *периодическая выборка
+       планировщика* по БД (кандидаты с истёкшим `deliveryDeadlineAt` /
+       `expiresAt`), затем публикация check-команд только для найденных id.
+       Не создаём таймерную команду на каждый код в момент создания —
+       снижает шум очереди и упрощает согласование с дедлайнами.
+
+    ## Аналитика R-2–R-4 и `sentAt`
+    Отчёты R-2–R-4 строятся по полю `sentAt` (и связанным статусам) **в БД**
+    через Insight / веб-клиент BPMSoft. Отдельное потоковое событие
+    «первая допустимая отправка» в брокер **не вводится** в MVP.
+    Webhook `ACCEPTED_BY_PROVIDER` обновляет БД; Insight читает результат.
+
+    ## TTL сообщений (согласование с бизнес-дедлайнами)
+    Значения — **предложение для согласования**:
+    | Канал | message TTL | Обоснование |
+    |-------|-------------|-------------|
+    | dispatch.requested / retry | 24h (`86400000` ms) | ≤ типичного `deliveryDeadlineAt` окна отправки |
+    | dispatch.timeout.check | 1h | разовая проверка после выборки планировщика |
+    | validity.expire.check | 1h | аналогично |
+    | activated (event) | 72h | допуск для отстающих подписчиков |
+    Просроченное по TTL сообщение не обрабатывается; при необходимости
+    планировщик/outbox инициирует повтор по состоянию БД.
+
+    ## DLX / DLQ, повторы, идемпотентность
+    - Очереди команд объявляют `x-dead-letter-exchange = promocodes.dlx`
+      и routing key `*.dlq`.
+    - После исчерпания ограниченных повторов воркера (max 5, backoff
+      1m/5m/15m/1h/6h — предложение) сообщение → DLQ.
+    - Потребитель идемпотентен по бизнес-ключу (`promoCodeId`+`attemptNumber`
+      или `promoCodeId`+тип check). At-least-once; exactly-once end-to-end
+      **не** утверждается.
+    - Хранение DLQ: [предложение] 7 суток для разбора.
 
     ## Конверт
-    Структурированный режим CloudEvents 1.0 (`datacontenttype: application/json`).
-    Уникальность события: пара `source + id`. Не смешивать с binary mode.
-
-    ## Доставка
-    At-least-once на брокере. Exactly-once end-to-end **не** утверждается:
-    потребители идемпотентны по бизнес-ключу. Числовые TTL/retry —
-    предложения для согласования.
+    Структурированный режим CloudEvents 1.0. Уникальность: `source + id`.
 
   contact:
     name: ProfIT / РТУ МИРЭА АПиРПС
+  externalDocs:
+    description: |
+      OpenAPI 3.0.3 — синхронный Integration API и mail webhook
+      (локальный файл репозитория: openapi.yaml).
+    url: https://profit.example.local/specs/openapi.yaml
 
 defaultContentType: application/json
 
@@ -44,6 +80,7 @@ servers:
     description: |
       [Проектная схема] RabbitMQ как очередь фоновых заданий.
       Не подтверждённая production-конфигурация вендора.
+      DLX: exchange `promocodes.dlx` (direct), очереди `*.dlq`.
     security:
       - $ref: '#/components/securitySchemes/rabbitUserPassword'
     bindings:
@@ -55,8 +92,8 @@ channels:
   promocodes.dispatch.requested.v1:
     address: promocodes.dispatch.requested.v1
     description: |
-      Команда: поставить задачу первой отправки промокода.
-      Механизм: очередь (point-to-point). Гарантия: at-least-once.
+      Команда первой отправки (один PromoCode → одно сообщение, outbox).
+      Queue, at-least-once. TTL 24h. DLX → `promocodes.dispatch.requested.v1.dlq`.
     messages:
       PromoDispatchRequested:
         $ref: '#/components/messages/PromoDispatchRequested'
@@ -70,12 +107,16 @@ channels:
           exclusive: false
           autoDelete: false
           vhost: /
+          additionalProperties:
+            x-message-ttl: 86400000
+            x-dead-letter-exchange: promocodes.dlx
+            x-dead-letter-routing-key: promocodes.dispatch.requested.v1.dlq
 
   promocodes.dispatch.retry.requested.v1:
     address: promocodes.dispatch.retry.requested.v1
     description: |
-      Команда: повторная отправка. Создаёт новую PromoSendAttempt,
-      не новый PromoCode.
+      Команда повторной отправки. Новая PromoSendAttempt, не новый PromoCode.
+      TTL 24h. DLX → соответствующий DLQ.
     messages:
       PromoDispatchRetryRequested:
         $ref: '#/components/messages/PromoDispatchRetryRequested'
@@ -89,12 +130,17 @@ channels:
           exclusive: false
           autoDelete: false
           vhost: /
+          additionalProperties:
+            x-message-ttl: 86400000
+            x-dead-letter-exchange: promocodes.dlx
+            x-dead-letter-routing-key: promocodes.dispatch.retry.requested.v1.dlq
 
   promocodes.dispatch.timeout.check.v1:
     address: promocodes.dispatch.timeout.check.v1
     description: |
-      Команда планировщика: проверить deliveryDeadlineAt.
-      При отсутствии ACCEPTED_BY_PROVIDER → ANNULLED (DISPATCH_TIMEOUT).
+      Check после периодической выборки планировщика (не per-code timer при create).
+      Нет ACCEPTED_BY_PROVIDER до deliveryDeadlineAt → ANNULLED (DISPATCH_TIMEOUT).
+      TTL 1h.
     messages:
       PromoDispatchTimeoutCheck:
         $ref: '#/components/messages/PromoDispatchTimeoutCheck'
@@ -108,12 +154,16 @@ channels:
           exclusive: false
           autoDelete: false
           vhost: /
+          additionalProperties:
+            x-message-ttl: 3600000
+            x-dead-letter-exchange: promocodes.dlx
+            x-dead-letter-routing-key: promocodes.dispatch.timeout.check.v1.dlq
 
   promocodes.validity.expire.check.v1:
     address: promocodes.validity.expire.check.v1
     description: |
-      Команда планировщика: аннуляция по VALIDITY_EXPIRED
-      (expiresAt прошёл, статус READY_TO_ACTIVATE).
+      Check после периодической выборки планировщика:
+      READY_TO_ACTIVATE и now > expiresAt → ANNULLED (VALIDITY_EXPIRED). TTL 1h.
     messages:
       PromoValidityExpireCheck:
         $ref: '#/components/messages/PromoValidityExpireCheck'
@@ -127,14 +177,16 @@ channels:
           exclusive: false
           autoDelete: false
           vhost: /
+          additionalProperties:
+            x-message-ttl: 3600000
+            x-dead-letter-exchange: promocodes.dlx
+            x-dead-letter-routing-key: promocodes.validity.expire.check.v1.dlq
 
   promocodes.activated.v1:
     address: promocodes.activated.v1
     description: |
-      Доменное событие: промокод активирован после доверенного
-      подтверждения покупки. [Проектное решение] публикация через
-      Transactional Outbox для внешних/внутренних подписчиков.
-      Insight R-1–R-4 читает БД напрямую и не обязан потреблять это событие.
+      Доменное событие активации (outbox). Insight R-1–R-4 **не** обязан
+      потреблять его — отчёты по БД. TTL 72h для подписчиков.
     messages:
       PromoCodeActivated:
         $ref: '#/components/messages/PromoCodeActivated'
@@ -175,11 +227,11 @@ operations:
       $ref: '#/channels/promocodes.dispatch.requested.v1'
     summary: Воркер получает команду отправки
     description: |
-      Успех: создана PromoSendAttempt (CREATED), письмо передано в CES/провайдер,
-      ACK брокеру. Идемпотентность: ключ promoCodeId + attemptNumber=1.
-      Retry: [предложение] max 5, backoff 1m/5m/15m/1h/6h.
-      DLQ: после исчерпания попыток → promocodes.dispatch.requested.v1.dlq.
-      TTL сообщения: [предложение] 24h.
+      Успех: PromoSendAttempt (CREATED), письмо в CES/провайдер, ACK.
+      Идемпотентность: `promoCodeId` + `attemptNumber=1`.
+      Ограниченные повторы: max 5, backoff 1m/5m/15m/1h/6h ([предложение]).
+      После исчерпания → DLX/DLQ `promocodes.dispatch.requested.v1.dlq`.
+      Message TTL: 24h (см. info / queue `x-message-ttl`).
     messages:
       - $ref: '#/channels/promocodes.dispatch.requested.v1/messages/PromoDispatchRequested'
 
@@ -210,10 +262,11 @@ operations:
     action: send
     channel:
       $ref: '#/channels/promocodes.dispatch.timeout.check.v1'
-    summary: Планировщик ставит проверку срока отправки
+    summary: Планировщик публикует check после выборки кандидатов
     description: |
-      Производитель: планировщик BPMSoft.
-      Триггер: approaching/passed deliveryDeadlineAt при отсутствии accepted.
+      Производитель: планировщик BPMSoft после SQL/ORM-выборки кодов
+      с deliveryDeadlineAt ≤ now без ACCEPTED. Не per-code timer при create
+      (см. ADR в info).
     messages:
       - $ref: '#/channels/promocodes.dispatch.timeout.check.v1/messages/PromoDispatchTimeoutCheck'
 

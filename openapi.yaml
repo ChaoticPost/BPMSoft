@@ -10,6 +10,10 @@ info:
     - внешнего торгового контура (проверка промокода, подтверждение покупки, передача продаж);
     - webhook почтового провайдера (статусы попыток отправки).
 
+    Асинхронные команды и события брокера описаны отдельно: `asyncapi.yaml`
+    (AsyncAPI 3.0.0). Связанный HTTP-webhook провайдера — операция
+    `receiveMailProviderEvent` в этом документе.
+
     ## Архитектурные границы (C2)
     Администрирование турниров, каталога, версий тестов, ролей, отчётов R-1–R-4
     и служебная аутентификация сотрудников выполняются через штатный веб-клиент
@@ -20,13 +24,52 @@ info:
 
     ## Контуры доверия
     1. **Public** — анонимный посетитель; доступ только к опубликованным данным
-       и собственной попытке теста (токен попытки).
+       и собственной попытке теста (`AttemptTokenAuth` / `X-Attempt-Token`).
     2. **Commerce** — машинная аутентификация торгового контура.
     3. **MailProvider** — проверка подлинности webhook провайдера.
 
-    ## Денежные значения
-    Суммы передаются строкой в формате decimal с ровно двумя знаками после точки
-    (единица — рубль, scale = 2), без двоичного float. Пример: `"1490.00"`.
+    ## Корреляция
+    Клиент MAY передать `X-Correlation-ID`. Если заголовок отсутствует,
+    сервер генерирует UUID и возвращает его в ответе (`X-Correlation-ID`).
+    Значение используется для сквозной трассировки REST → ядро → брокер.
+
+    ## Идемпотентность (`Idempotency-Key`)
+    Для операций с побочным эффектом:
+    - повтор с **тем же** ключом и **тем же** телом → исходный успешный ответ
+      (200/201/202/204), без повторного побочного эффекта;
+    - повтор с **тем же** ключом и **другим** телом → `409 Conflict`
+      (`IDEMPOTENCY_KEY_BODY_MISMATCH`);
+    - ключ хранится не менее 24 ч ([предложение для согласования]).
+
+    ## Повтор прохождения теста
+    Ограничение: не более одной **незавершённой** попытки на пару
+    (`publishedVersionId`, нормализованный email), если email уже известен
+    (например после предыдущего finish). До finish email может отсутствовать —
+    тогда действует rate limit на IP/клиент.
+    Попытка создать конфликтную новую попытку → `409` (`TEST_ATTEMPT_IN_PROGRESS`).
+    Создание попыток дополнительно ограничено rate limit → `429` + `Retry-After`.
+
+    ## Денежные значения и валюты
+    Суммы — строка decimal, scale = 2 (пример: `"1490.00"`).
+    MVP: только `RUB` (`CurrencyCode`). Добавление валют — **ломающее**
+    расширение контракта: новая minor-версия API (`/api/v2` или согласованный
+    feature-flag), предупреждение потребителей ≥ 30 дней, поддержка v1
+    до вывода из эксплуатации по календарю команды. Обратная совместимость
+    v1 не предполагает произвольных новых enum без версии.
+
+    ## Версионирование и вывод из эксплуатации
+    - Совместимые изменения (новые optional-поля, новые коды в `reasons`
+      с документированием): в рамках `v1`.
+    - Ломающие (удаление/переименование полей, смена семантики статусов,
+      новые обязательные поля): новая major URL-версия.
+    - Вывод `v1`: объявление deprecation в `info`/`servers`, Sunset-заголовок
+      ([предложение]), параллельная поддержка ≥ одного учебного семестра
+      или срока, согласованного с торговым контуром.
+
+    ## Доступность (503)
+    `503 Service Unavailable` применяется ко **всем** операциям контракта
+    единообразно при недоступности ядра BPMSoft / зависимостей.
+    Клиент должен повторять с учётом `Retry-After`, если заголовок передан.
 
     ## Ошибки
     `application/problem+json` по RFC 9457. Поле `status` — целое число.
@@ -36,9 +79,17 @@ info:
   license:
     name: Proprietary — academic use
 
+externalDocs:
+  description: |
+    AsyncAPI 3.0 — асинхронные команды и события ProfIT
+    (локальный файл репозитория: asyncapi.yaml).
+  url: https://profit.example.local/specs/asyncapi.yaml
+
 servers:
-  - url: https://profit.example.local/api/v1
-    description: Условный базовый URL (не production)
+  - url: https://profit-dev.example.local/api/v1
+    description: Условная среда разработки (не production)
+  - url: https://profit-test.example.local/api/v1
+    description: Условный тестовый стенд интеграций (не production)
 
 tags:
   - name: PublicCatalog
@@ -62,6 +113,7 @@ paths:
         Возвращает только `published = true`. Служебные статусы и черновики скрыты.
         Эпик: E-4. Сущности: Product, ProductGroup.
       parameters:
+        - $ref: '#/components/parameters/CorrelationId'
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Offset'
         - name: productGroupId
@@ -74,6 +126,9 @@ paths:
       responses:
         '200':
           description: Страница опубликованных товаров
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
@@ -97,11 +152,15 @@ paths:
         Инициатор: публичный клиент. 404, если товар не существует или не опубликован.
         Эпик: E-4.
       parameters:
+        - $ref: '#/components/parameters/CorrelationId'
         - $ref: '#/components/parameters/ProductId'
         - $ref: '#/components/parameters/AcceptLanguage'
       responses:
         '200':
           description: Карточка товара
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
@@ -112,6 +171,8 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
       security: []
 
   /public/tests:
@@ -123,19 +184,27 @@ paths:
         Возвращает тесты, у которых есть опубликованная версия.
         Черновые версии недоступны. Эпик: E-2. Сущность: OnlineTest.
       parameters:
+        - $ref: '#/components/parameters/CorrelationId'
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Offset'
       responses:
         '200':
           description: Список тестов
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicOnlineTestListResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
       security: []
 
   /public/tests/{testId}/published-version:
@@ -149,18 +218,26 @@ paths:
         Инварианты: черновик недоступен; версия неизменяема после публикации.
         Эпик: E-2. Сущности: TestVersion, TestQuestion, AnswerOption.
       parameters:
+        - $ref: '#/components/parameters/CorrelationId'
         - $ref: '#/components/parameters/TestId'
       responses:
         '200':
           description: Опубликованная версия
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublishedTestVersionResponse'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
       security: []
 
   /public/test-attempts:
@@ -171,9 +248,14 @@ paths:
       description: |
         Создаёт TestAttempt, привязанную к указанной опубликованной версии.
         В ответ выдаётся `attemptToken` ([проектное решение]: доступ к попытке
-        без регистрации публичного пользователя).
-        Клиент обязан передавать токен в заголовке `X-Attempt-Token` для
-        последующих операций с попыткой.
+        без регистрации). Последующие операции защищены `AttemptTokenAuth`.
+
+        Конфликты / лимиты:
+        - `409` `TEST_ATTEMPT_IN_PROGRESS` — незавершённая попытка на ту же
+          версию для того же email (если email уже связан с активной попыткой);
+        - `429` — rate limit на создание попыток (IP / клиент); см. `Retry-After`.
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
       requestBody:
         required: true
         content:
@@ -185,6 +267,9 @@ paths:
       responses:
         '201':
           description: Попытка создана
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
@@ -197,8 +282,12 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
       security: []
 
   /public/test-attempts/{attemptId}:
@@ -207,14 +296,17 @@ paths:
       operationId: getTestAttempt
       summary: Состояние попытки и результат (если завершена)
       description: |
-        Требует `X-Attempt-Token`. Для незавершённой попытки `score` и `successful` = null.
-        Сервер сам рассчитывает результат; клиент не подменяет правильность.
+        Требует `AttemptTokenAuth`. Для незавершённой попытки `score` и
+        `successful` = null. Сервер сам рассчитывает результат.
       parameters:
+        - $ref: '#/components/parameters/CorrelationId'
         - $ref: '#/components/parameters/AttemptId'
-        - $ref: '#/components/parameters/AttemptToken'
       responses:
         '200':
           description: Состояние попытки
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
@@ -225,9 +317,14 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
-      security: []
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      security:
+        - AttemptTokenAuth: []
 
   /public/test-attempts/{attemptId}/answers:
     post:
@@ -236,12 +333,11 @@ paths:
       summary: Зафиксировать ответ на вопрос
       description: |
         Создаёт AttemptAnswer. Вариант должен принадлежать вопросу версии попытки.
-        Повторный ответ на тот же вопрос → 409.
-        GET-семантика не применяется; операция идемпотентна при том же
-        Idempotency-Key ([проектное решение]).
+        Повторный ответ на тот же вопрос → 409 (`ANSWER_ALREADY_SUBMITTED`).
+        Идемпотентность: см. правила `Idempotency-Key` в `info.description`.
       parameters:
+        - $ref: '#/components/parameters/CorrelationId'
         - $ref: '#/components/parameters/AttemptId'
-        - $ref: '#/components/parameters/AttemptToken'
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -255,6 +351,9 @@ paths:
       responses:
         '204':
           description: Ответ зафиксирован
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -267,9 +366,14 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
-      security: []
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      security:
+        - AttemptTokenAuth: []
 
   /public/test-attempts/{attemptId}/finish:
     post:
@@ -279,12 +383,13 @@ paths:
       description: |
         Сервер рассчитывает `score` и `successful` по `successThreshold` версии.
         При успехе может быть сформировано основание для выдачи промокода (TEST);
-        фактическая отправка выполняется асинхронно (не в этом ответе).
-        Код промокода публичному клиенту не возвращается — только статус основания.
-        Email получателя передаётся в теле, не в URL.
+        фактическая отправка асинхронна. Код промокода публично не возвращается.
+        Email в теле, не в URL. Идемпотентность — по `Idempotency-Key`.
+        Повтор finish уже завершённой попытки с тем же ключом → исходный 200;
+        с другим ключом → 409 (`ATTEMPT_ALREADY_FINISHED`).
       parameters:
+        - $ref: '#/components/parameters/CorrelationId'
         - $ref: '#/components/parameters/AttemptId'
-        - $ref: '#/components/parameters/AttemptToken'
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -297,6 +402,9 @@ paths:
       responses:
         '200':
           description: Попытка завершена
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
@@ -313,9 +421,14 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
-      security: []
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      security:
+        - AttemptTokenAuth: []
 
   /integrations/commerce/promocodes/validate:
     post:
@@ -330,6 +443,7 @@ paths:
         по авторитетным данным (при отсутствии товара в каталоге — отказ с причиной).
         Активации не происходит. Эпики: E-3, E-5.
       parameters:
+        - $ref: '#/components/parameters/CorrelationId'
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       requestBody:
         required: true
@@ -350,6 +464,9 @@ paths:
       responses:
         '200':
           description: Решение о применимости
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
@@ -366,6 +483,8 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
       security:
         - CommerceApiKey: []
 
@@ -377,17 +496,15 @@ paths:
       description: |
         Доверенное подтверждение покупки от торгового контура.
         При наличии промокода выполняется однократная активация
-        (CREATED/READY_TO_ACTIVATE → ACTIVATED) только если:
-        - код в статусе READY_TO_ACTIVATE;
-        - не истёк expiresAt;
-        - позиции содержат товар целевой группы;
-        - код ещё не активирован.
+        только если код в READY_TO_ACTIVATE, не истёк expiresAt,
+        позиции содержат товар целевой группы, код ещё не активирован.
 
         Покупки без промокода также принимаются (для E-6).
-        Защита от повторов: Idempotency-Key + уникальность purchaseExternalId.
-        Публичная анонимная активация запрещена (критерий приёмки №1).
+        Идемпотентность: `Idempotency-Key` + уникальность `purchaseExternalId`
+        (см. `info.description`). Публичная анонимная активация запрещена.
         Эпики: E-3, E-5, E-6. Сущности: Purchase, PurchaseItem, PromoCode.
       parameters:
+        - $ref: '#/components/parameters/CorrelationId'
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -433,8 +550,12 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
       security:
         - CommerceApiKey: []
 
@@ -451,7 +572,9 @@ paths:
         подтверждена через /purchases, запись здесь служит аналитическим слепком
         либо дополняет покупки без кода. Правила сверки — открытый вопрос.
         Возвраты/отмены исторических данных **не** входят в MVP-контракт.
+        Идемпотентность пакета — по `Idempotency-Key` (см. info).
       parameters:
+        - $ref: '#/components/parameters/CorrelationId'
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -508,8 +631,12 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
       security:
         - CommerceApiKey: []
 
@@ -533,7 +660,10 @@ paths:
         - дедупликация по providerEventId / providerMessageId + type.
 
         Ответ 202 означает приём webhook, а не факт доставки письма получателю.
+        Контракт брокера: `asyncapi.yaml`. Аналитика R-2–R-4 строится по `sentAt`
+        в БД (Insight), без обязательного потокового события accept.
       parameters:
+        - $ref: '#/components/parameters/CorrelationId'
         - $ref: '#/components/parameters/IdempotencyKeyOptional'
       requestBody:
         required: true
@@ -588,8 +718,12 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
       security:
         - MailWebhookSignature: []
 
@@ -611,8 +745,43 @@ components:
         [Проектное решение] HMAC-подпись тела webhook + timestamp
         (`X-Provider-Timestamp`) для защиты от подделки и replay.
         Конкретный алгоритм — по документации выбранного провайдера.
+    AttemptTokenAuth:
+      type: apiKey
+      in: header
+      name: X-Attempt-Token
+      description: |
+        Токен доступа к конкретной попытке теста. Выдаётся в ответе
+        `createTestAttempt` (`data.attemptToken`). Не является учётной
+        записью BPMSoft. Неверный/чужой/просроченный токен → 401/403.
+
+  headers:
+    CorrelationId:
+      description: Идентификатор корреляции (эхо клиента или серверная генерация)
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+        example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
+    RetryAfter:
+      description: Секунды до допустимого повтора запроса (RFC 9110)
+      schema:
+        type: integer
+        minimum: 1
+        example: 60
 
   parameters:
+    CorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: |
+        Опциональный id корреляции. Если отсутствует — сервер генерирует UUID
+        и возвращает в заголовке ответа `X-Correlation-ID`.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+        example: 7c9e6679-7425-40de-944b-e07fc1f90ae7
     Limit:
       name: limit
       in: query
@@ -657,20 +826,14 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/UUID'
-    AttemptToken:
-      name: X-Attempt-Token
-      in: header
-      required: true
-      description: Токен доступа к конкретной попытке (выдаётся при создании)
-      schema:
-        type: string
-        minLength: 32
-        maxLength: 512
     IdempotencyKey:
       name: Idempotency-Key
       in: header
       required: true
-      description: Ключ идемпотентности для операций с побочными эффектами
+      description: |
+        Ключ идемпотентности. Тот же ключ + то же тело → исходный успех;
+        тот же ключ + другое тело → 409 `IDEMPOTENCY_KEY_BODY_MISMATCH`.
+        См. `info.description`.
       schema:
         type: string
         minLength: 8
@@ -679,6 +842,8 @@ components:
       name: Idempotency-Key
       in: header
       required: false
+      description: |
+        Опциональный ключ идемпотентности (те же правила, что у обязательного).
       schema:
         type: string
         minLength: 8
@@ -734,7 +899,11 @@ components:
             status: 404
             detail: Запрошенный ресурс не существует или недоступен.
     Conflict:
-      description: Конфликт состояния
+      description: |
+        Конфликт состояния. Типовые business-коды в `violations` /
+        `detail`: `TEST_ATTEMPT_IN_PROGRESS`, `ANSWER_ALREADY_SUBMITTED`,
+        `ATTEMPT_ALREADY_FINISHED`, `IDEMPOTENCY_KEY_BODY_MISMATCH`,
+        дубликат `purchaseExternalId` / `providerEventId`.
       content:
         application/problem+json:
           schema:
@@ -743,7 +912,11 @@ components:
             type: https://profit.example.local/problems/conflict
             title: Конфликт состояния
             status: 409
-            detail: Операция невозможна в текущем состоянии ресурса.
+            detail: Незавершённая попытка для этой версии уже существует.
+            violations:
+              - code: TEST_ATTEMPT_IN_PROGRESS
+                field: versionId
+                detail: Завершите текущую попытку или дождитесь таймаута.
     UnprocessableEntity:
       description: Семантическая / бизнес-ошибка
       content:
@@ -760,7 +933,12 @@ components:
                 field: items
                 detail: Нет позиций целевой товарной группы.
     TooManyRequests:
-      description: Превышен лимит запросов
+      description: Превышен лимит запросов. Клиент обязан уважать `Retry-After`.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
       content:
         application/problem+json:
           schema:
@@ -769,9 +947,12 @@ components:
             type: https://profit.example.local/problems/rate-limit
             title: Слишком много запросов
             status: 429
-            detail: Повторите запрос позже.
+            detail: Лимит создания попыток исчерпан. Повторите через Retry-After секунд.
     InternalServerError:
       description: Внутренняя ошибка
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
       content:
         application/problem+json:
           schema:
@@ -782,7 +963,14 @@ components:
             status: 500
             detail: Не удалось обработать запрос.
     ServiceUnavailable:
-      description: Сервис временно недоступен
+      description: |
+        Сервис временно недоступен (ядро BPMSoft / зависимости).
+        Единообразно для всех операций контракта. При наличии — `Retry-After`.
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationId'
       content:
         application/problem+json:
           schema:
@@ -791,7 +979,7 @@ components:
             type: https://profit.example.local/problems/unavailable
             title: Сервис недоступен
             status: 503
-            detail: Повторите запрос позже.
+            detail: Ядро временно недоступно. Повторите позже.
 
   schemas:
     UUID:
@@ -809,6 +997,9 @@ components:
     CurrencyCode:
       type: string
       enum: [RUB]
+      description: |
+        MVP — только RUB. Расширение валют = ломающее изменение → новая
+        major-версия API (см. info.description).
       example: RUB
 
     PaginationMeta:
@@ -1038,6 +1229,14 @@ components:
       properties:
         versionId:
           $ref: '#/components/schemas/UUID'
+        recipientEmail:
+          type: string
+          format: email
+          maxLength: 255
+          description: |
+            Опционально. Если передан и существует незавершённая попытка
+            на ту же версию для этого email → 409 TEST_ATTEMPT_IN_PROGRESS.
+            Иначе email обычно указывается при finish.
 
     CreateTestAttemptResponse:
       type: object
