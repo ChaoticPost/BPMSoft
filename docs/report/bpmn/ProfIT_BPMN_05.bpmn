@@ -1,0 +1,521 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_ProfIT_BPMN_05" targetNamespace="http://bpmn.io/schema/bpmn" exporter="ProfIT BPMN build" exporterVersion="1.0">
+  <bpmn:collaboration id="Collab_ProfIT_BPMN_05">
+    <bpmn:participant id="Pool_ProfIT_BPMN_05" name="ProfIT — создание промокода и обработка почтовых событий (BPMN-05)" processRef="Process_ProfIT_BPMN_05"/>
+    <bpmn:participant id="PROV" name="Почтовый провайдер"/>
+    <bpmn:participant id="RCPT" name="Получатель письма"/>
+    <bpmn:messageFlow id="msg_0" name="Письмо с промокодом" sourceRef="iSND" targetRef="PROV"/>
+    <bpmn:messageFlow id="msg_1" name="ACCEPTED" sourceRef="PROV" targetRef="iACC"/>
+    <bpmn:messageFlow id="msg_2" name="FAILED" sourceRef="PROV" targetRef="iFAIL"/>
+    <bpmn:messageFlow id="msg_3" name="DELIVERED" sourceRef="PROV" targetRef="dDEL"/>
+    <bpmn:messageFlow id="msg_4" name="FAILED" sourceRef="PROV" targetRef="dFAIL"/>
+    <bpmn:messageFlow id="msg_5" name="Доставка письма" sourceRef="PROV" targetRef="RCPT"/>
+  </bpmn:collaboration>
+  <bpmn:process id="Process_ProfIT_BPMN_05" name="ProfIT — создание промокода и обработка почтовых событий (BPMN-05)" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_ProfIT_BPMN_05">
+      <bpmn:lane id="lane_sys" name="Ядро BPMSoft">
+        <bpmn:flowNodeRef>S1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ST1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ST2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>J_SND</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ST3</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ST4</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E_FAIL</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ST5</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>J_X</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E3</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ST_ANN</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E4</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_R</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ST8</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ST6</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_ces" name="CES / воркер отправки">
+        <bpmn:flowNodeRef>SP_SEND</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>B_T</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>B_ERR</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>SP_DELIV</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>B_WIN</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>B_ERR2</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="S1" name="Подтверждено основание GAME / TEST">
+      <bpmn:outgoing>flow_0</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:serviceTask id="ST1" name="Проверить основание и уникальность кода">
+      <bpmn:incoming>flow_0</bpmn:incoming>
+      <bpmn:outgoing>flow_1</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="G1" name="Основание допустимо, кода нет?">
+      <bpmn:incoming>flow_1</bpmn:incoming>
+      <bpmn:outgoing>flow_2</bpmn:outgoing>
+      <bpmn:outgoing>flow_3</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="E2" name="Выдача отклонена">
+      <bpmn:incoming>flow_2</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="ST2" name="Создать PromoCode (CREATED) и попытку № 1">
+      <bpmn:incoming>flow_3</bpmn:incoming>
+      <bpmn:outgoing>flow_4</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="J_SND" name="">
+      <bpmn:incoming>flow_4</bpmn:incoming>
+      <bpmn:incoming>flow_11</bpmn:incoming>
+      <bpmn:outgoing>flow_5</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="ST3" name="Обновить acceptedAt, sentAt, expiresAt → READY_TO_ACTIVATE">
+      <bpmn:incoming>flow_12</bpmn:incoming>
+      <bpmn:outgoing>flow_13</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="ST4" name="Зафиксировать deliveredAt">
+      <bpmn:incoming>flow_16</bpmn:incoming>
+      <bpmn:outgoing>flow_17</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="E1" name="Готов к активации (доставлено)">
+      <bpmn:incoming>flow_17</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="E_FAIL" name="Отправка завершилась ошибкой">
+      <bpmn:incoming>flow_10</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="ST5" name="Отметить недоставку в истории попытки">
+      <bpmn:incoming>flow_15</bpmn:incoming>
+      <bpmn:outgoing>flow_18</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="J_X" name="">
+      <bpmn:incoming>flow_18</bpmn:incoming>
+      <bpmn:incoming>flow_19</bpmn:incoming>
+      <bpmn:outgoing>flow_20</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="E3" name="Готов к активации (доставка не подтверждена)">
+      <bpmn:incoming>flow_20</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="ST_ANN" name="Аннулировать: ANNULLED, DISPATCH_TIMEOUT">
+      <bpmn:incoming>flow_6</bpmn:incoming>
+      <bpmn:outgoing>flow_7</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="E4" name="Аннулирован по таймауту отправки">
+      <bpmn:incoming>flow_7</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:exclusiveGateway id="G_R" name="Повтор допустим и время есть?">
+      <bpmn:incoming>flow_8</bpmn:incoming>
+      <bpmn:outgoing>flow_9</bpmn:outgoing>
+      <bpmn:outgoing>flow_10</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="ST8" name="Создать новую PromoSendAttempt">
+      <bpmn:incoming>flow_9</bpmn:incoming>
+      <bpmn:outgoing>flow_11</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="ST6" name="Сохранить неопределённость истории">
+      <bpmn:incoming>flow_14</bpmn:incoming>
+      <bpmn:outgoing>flow_19</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:subProcess id="SP_SEND" name="Отправка письма и ожидание приёма">
+      <bpmn:incoming>flow_5</bpmn:incoming>
+      <bpmn:outgoing>flow_12</bpmn:outgoing>
+      <bpmn:startEvent id="iS" name="Попытка создана">
+        <bpmn:outgoing>SP_SEND_if_0</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:sendTask id="iSND" name="Передать письмо провайдеру">
+        <bpmn:incoming>SP_SEND_if_0</bpmn:incoming>
+        <bpmn:outgoing>SP_SEND_if_1</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:eventBasedGateway id="iGEV" name="Результат приёма">
+        <bpmn:incoming>SP_SEND_if_1</bpmn:incoming>
+        <bpmn:outgoing>SP_SEND_if_2</bpmn:outgoing>
+        <bpmn:outgoing>SP_SEND_if_3</bpmn:outgoing>
+      </bpmn:eventBasedGateway>
+      <bpmn:intermediateCatchEvent id="iACC" name="ACCEPTED_BY_PROVIDER">
+        <bpmn:incoming>SP_SEND_if_2</bpmn:incoming>
+        <bpmn:outgoing>SP_SEND_if_4</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="med_iACC"/>
+      </bpmn:intermediateCatchEvent>
+      <bpmn:intermediateCatchEvent id="iFAIL" name="FAILED / ошибка приёма">
+        <bpmn:incoming>SP_SEND_if_3</bpmn:incoming>
+        <bpmn:outgoing>SP_SEND_if_5</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="med_iFAIL"/>
+      </bpmn:intermediateCatchEvent>
+      <bpmn:endEvent id="iE_OK" name="Принято провайдером">
+        <bpmn:incoming>SP_SEND_if_4</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:endEvent id="iE_ERR" name="Не принято">
+        <bpmn:incoming>SP_SEND_if_5</bpmn:incoming>
+      <bpmn:errorEventDefinition id="erd_iE_ERR"/>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="SP_SEND_if_0" sourceRef="iS" targetRef="iSND"/>
+      <bpmn:sequenceFlow id="SP_SEND_if_1" sourceRef="iSND" targetRef="iGEV"/>
+      <bpmn:sequenceFlow id="SP_SEND_if_2" sourceRef="iGEV" targetRef="iACC"/>
+      <bpmn:sequenceFlow id="SP_SEND_if_3" sourceRef="iGEV" targetRef="iFAIL"/>
+      <bpmn:sequenceFlow id="SP_SEND_if_4" sourceRef="iACC" targetRef="iE_OK"/>
+      <bpmn:sequenceFlow id="SP_SEND_if_5" sourceRef="iFAIL" targetRef="iE_ERR"/>
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="B_T" name="deliveryDeadlineAt" attachedToRef="SP_SEND" cancelActivity="true">
+      <bpmn:outgoing>flow_6</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="ted_B_T"/>
+    </bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="B_ERR" name="Приём не удался" attachedToRef="SP_SEND" cancelActivity="true">
+      <bpmn:outgoing>flow_8</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="erd_B_ERR"/>
+    </bpmn:boundaryEvent>
+    <bpmn:subProcess id="SP_DELIV" name="Ожидание доставки">
+      <bpmn:incoming>flow_13</bpmn:incoming>
+      <bpmn:outgoing>flow_16</bpmn:outgoing>
+      <bpmn:startEvent id="dS" name="Письмо принято">
+        <bpmn:outgoing>SP_DELIV_if_0</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:eventBasedGateway id="dGEV" name="Событие доставки">
+        <bpmn:incoming>SP_DELIV_if_0</bpmn:incoming>
+        <bpmn:outgoing>SP_DELIV_if_1</bpmn:outgoing>
+        <bpmn:outgoing>SP_DELIV_if_2</bpmn:outgoing>
+      </bpmn:eventBasedGateway>
+      <bpmn:intermediateCatchEvent id="dDEL" name="DELIVERED">
+        <bpmn:incoming>SP_DELIV_if_1</bpmn:incoming>
+        <bpmn:outgoing>SP_DELIV_if_3</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="med_dDEL"/>
+      </bpmn:intermediateCatchEvent>
+      <bpmn:intermediateCatchEvent id="dFAIL" name="FAILED (доставка)">
+        <bpmn:incoming>SP_DELIV_if_2</bpmn:incoming>
+        <bpmn:outgoing>SP_DELIV_if_4</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="med_dFAIL"/>
+      </bpmn:intermediateCatchEvent>
+      <bpmn:endEvent id="dE_OK" name="Доставлено">
+        <bpmn:incoming>SP_DELIV_if_3</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:endEvent id="dE_ERR" name="Доставка не удалась">
+        <bpmn:incoming>SP_DELIV_if_4</bpmn:incoming>
+      <bpmn:errorEventDefinition id="erd_dE_ERR"/>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="SP_DELIV_if_0" sourceRef="dS" targetRef="dGEV"/>
+      <bpmn:sequenceFlow id="SP_DELIV_if_1" sourceRef="dGEV" targetRef="dDEL"/>
+      <bpmn:sequenceFlow id="SP_DELIV_if_2" sourceRef="dGEV" targetRef="dFAIL"/>
+      <bpmn:sequenceFlow id="SP_DELIV_if_3" sourceRef="dDEL" targetRef="dE_OK"/>
+      <bpmn:sequenceFlow id="SP_DELIV_if_4" sourceRef="dFAIL" targetRef="dE_ERR"/>
+    </bpmn:subProcess>
+    <bpmn:boundaryEvent id="B_WIN" name="Окно доставки истекло" attachedToRef="SP_DELIV" cancelActivity="true">
+      <bpmn:outgoing>flow_14</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="ted_B_WIN"/>
+    </bpmn:boundaryEvent>
+    <bpmn:boundaryEvent id="B_ERR2" name="Доставка не удалась" attachedToRef="SP_DELIV" cancelActivity="true">
+      <bpmn:outgoing>flow_15</bpmn:outgoing>
+      <bpmn:errorEventDefinition id="erd_B_ERR2"/>
+    </bpmn:boundaryEvent>
+    <bpmn:sequenceFlow id="flow_0" sourceRef="S1" targetRef="ST1"/>
+    <bpmn:sequenceFlow id="flow_1" sourceRef="ST1" targetRef="G1"/>
+    <bpmn:sequenceFlow id="flow_2" name="Нет" sourceRef="G1" targetRef="E2"/>
+    <bpmn:sequenceFlow id="flow_3" name="Да" sourceRef="G1" targetRef="ST2"/>
+    <bpmn:sequenceFlow id="flow_4" sourceRef="ST2" targetRef="J_SND"/>
+    <bpmn:sequenceFlow id="flow_5" sourceRef="J_SND" targetRef="SP_SEND"/>
+    <bpmn:sequenceFlow id="flow_6" sourceRef="B_T" targetRef="ST_ANN"/>
+    <bpmn:sequenceFlow id="flow_7" sourceRef="ST_ANN" targetRef="E4"/>
+    <bpmn:sequenceFlow id="flow_8" sourceRef="B_ERR" targetRef="G_R"/>
+    <bpmn:sequenceFlow id="flow_9" name="Да" sourceRef="G_R" targetRef="ST8"/>
+    <bpmn:sequenceFlow id="flow_10" name="Нет" sourceRef="G_R" targetRef="E_FAIL"/>
+    <bpmn:sequenceFlow id="flow_11" sourceRef="ST8" targetRef="J_SND"/>
+    <bpmn:sequenceFlow id="flow_12" sourceRef="SP_SEND" targetRef="ST3"/>
+    <bpmn:sequenceFlow id="flow_13" sourceRef="ST3" targetRef="SP_DELIV"/>
+    <bpmn:sequenceFlow id="flow_14" sourceRef="B_WIN" targetRef="ST6"/>
+    <bpmn:sequenceFlow id="flow_15" sourceRef="B_ERR2" targetRef="ST5"/>
+    <bpmn:sequenceFlow id="flow_16" sourceRef="SP_DELIV" targetRef="ST4"/>
+    <bpmn:sequenceFlow id="flow_17" sourceRef="ST4" targetRef="E1"/>
+    <bpmn:sequenceFlow id="flow_18" sourceRef="ST5" targetRef="J_X"/>
+    <bpmn:sequenceFlow id="flow_19" sourceRef="ST6" targetRef="J_X"/>
+    <bpmn:sequenceFlow id="flow_20" sourceRef="J_X" targetRef="E3"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDI_ProfIT_BPMN_05">
+    <bpmndi:BPMNPlane id="BPMNPlane_ProfIT_BPMN_05" bpmnElement="Collab_ProfIT_BPMN_05">
+      <bpmndi:BPMNShape id="Pool_ProfIT_BPMN_05_di" bpmnElement="Pool_ProfIT_BPMN_05" isHorizontal="true"><dc:Bounds x="60" y="60" width="3047" height="750"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="lane_sys_di" bpmnElement="lane_sys" isHorizontal="true"><dc:Bounds x="90" y="60" width="3017" height="450"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="lane_ces_di" bpmnElement="lane_ces" isHorizontal="true"><dc:Bounds x="90" y="510" width="3017" height="300"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="PROV_di" bpmnElement="PROV" isHorizontal="true"><dc:Bounds x="60" y="920" width="3047" height="64"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="RCPT_di" bpmnElement="RCPT" isHorizontal="true"><dc:Bounds x="60" y="1016" width="3047" height="64"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S1_di" bpmnElement="S1"><dc:Bounds x="172" y="117" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="90" y="157" width="200" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ST1_di" bpmnElement="ST1"><dc:Bounds x="315" y="95" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G1_di" bpmnElement="G1"><dc:Bounds x="515" y="110" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="440" y="164" width="200" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E2_di" bpmnElement="E2"><dc:Bounds x="522" y="267" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="484" y="307" width="112" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ST2_di" bpmnElement="ST2"><dc:Bounds x="665" y="95" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="J_SND_di" bpmnElement="J_SND"><dc:Bounds x="865" y="110" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ST3_di" bpmnElement="ST3"><dc:Bounds x="1715" y="95" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ST4_di" bpmnElement="ST4"><dc:Bounds x="2590" y="95" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E1_di" bpmnElement="E1"><dc:Bounds x="2797" y="117" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2715" y="157" width="200" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_FAIL_di" bpmnElement="E_FAIL"><dc:Bounds x="1572" y="267" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1492" y="307" width="196" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ST5_di" bpmnElement="ST5"><dc:Bounds x="2765" y="245" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="J_X_di" bpmnElement="J_X"><dc:Bounds x="2790" y="410" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E3_di" bpmnElement="E3"><dc:Bounds x="2972" y="417" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2890" y="457" width="200" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ST_ANN_di" bpmnElement="ST_ANN"><dc:Bounds x="665" y="245" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E4_di" bpmnElement="E4"><dc:Bounds x="872" y="267" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="790" y="307" width="200" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_R_di" bpmnElement="G_R"><dc:Bounds x="865" y="410" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="790" y="464" width="200" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ST8_di" bpmnElement="ST8"><dc:Bounds x="1365" y="395" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ST6_di" bpmnElement="ST6"><dc:Bounds x="2590" y="245" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SP_SEND_di" bpmnElement="SP_SEND" isExpanded="true"><dc:Bounds x="987" y="520" width="680" height="280"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1227" y="522" width="200" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="iS_di" bpmnElement="iS"><dc:Bounds x="1050" y="580" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1015" y="620" width="105" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="iSND_di" bpmnElement="iSND"><dc:Bounds x="1147" y="558" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="iGEV_di" bpmnElement="iGEV"><dc:Bounds x="1302" y="573" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1271" y="627" width="112" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="iACC_di" bpmnElement="iACC"><dc:Bounds x="1439" y="580" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1387" y="620" width="140" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="iFAIL_di" bpmnElement="iFAIL"><dc:Bounds x="1439" y="704" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1380" y="744" width="154" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="iE_OK_di" bpmnElement="iE_OK"><dc:Bounds x="1568" y="580" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1520" y="620" width="133" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="iE_ERR_di" bpmnElement="iE_ERR"><dc:Bounds x="1568" y="704" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1551" y="744" width="70" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="B_T_di" bpmnElement="B_T"><dc:Bounds x="969" y="600" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="924" y="640" width="126" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="B_ERR_di" bpmnElement="B_ERR"><dc:Bounds x="969" y="684" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="935" y="724" width="105" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SP_DELIV_di" bpmnElement="SP_DELIV" isExpanded="true"><dc:Bounds x="1862" y="520" width="680" height="280"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2143" y="522" width="119" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dS_di" bpmnElement="dS"><dc:Bounds x="1941" y="580" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1910" y="620" width="98" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dGEV_di" bpmnElement="dGEV"><dc:Bounds x="2096" y="573" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2065" y="627" width="112" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dDEL_di" bpmnElement="dDEL"><dc:Bounds x="2265" y="580" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2252" y="620" width="63" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dFAIL_di" bpmnElement="dFAIL"><dc:Bounds x="2265" y="704" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2224" y="744" width="119" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dE_OK_di" bpmnElement="dE_OK"><dc:Bounds x="2427" y="580" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2410" y="620" width="70" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="dE_ERR_di" bpmnElement="dE_ERR"><dc:Bounds x="2427" y="704" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2379" y="744" width="133" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="B_WIN_di" bpmnElement="B_WIN"><dc:Bounds x="2524" y="600" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2469" y="640" width="147" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="B_ERR2_di" bpmnElement="B_ERR2"><dc:Bounds x="2524" y="684" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2476" y="724" width="133" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="flow_0_di" bpmnElement="flow_0">
+        <di:waypoint x="208" y="135"/>
+        <di:waypoint x="315" y="135"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_1_di" bpmnElement="flow_1">
+        <di:waypoint x="415" y="135"/>
+        <di:waypoint x="515" y="135"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_2_di" bpmnElement="flow_2">
+        <di:waypoint x="540" y="160"/>
+        <di:waypoint x="540" y="267"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="514" y="208" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_3_di" bpmnElement="flow_3">
+        <di:waypoint x="565" y="135"/>
+        <di:waypoint x="665" y="135"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="575" y="117" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_4_di" bpmnElement="flow_4">
+        <di:waypoint x="765" y="135"/>
+        <di:waypoint x="865" y="135"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_5_di" bpmnElement="flow_5">
+        <di:waypoint x="915" y="135"/>
+        <di:waypoint x="1327" y="135"/>
+        <di:waypoint x="1327" y="520"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_6_di" bpmnElement="flow_6">
+        <di:waypoint x="969" y="618"/>
+        <di:waypoint x="715" y="618"/>
+        <di:waypoint x="715" y="325"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_7_di" bpmnElement="flow_7">
+        <di:waypoint x="765" y="285"/>
+        <di:waypoint x="872" y="285"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_8_di" bpmnElement="flow_8">
+        <di:waypoint x="969" y="702"/>
+        <di:waypoint x="890" y="702"/>
+        <di:waypoint x="890" y="460"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_9_di" bpmnElement="flow_9">
+        <di:waypoint x="915" y="435"/>
+        <di:waypoint x="1365" y="435"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1100" y="417" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_10_di" bpmnElement="flow_10">
+        <di:waypoint x="890" y="460"/>
+        <di:waypoint x="890" y="497"/>
+        <di:waypoint x="1590" y="497"/>
+        <di:waypoint x="1590" y="303"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="864" y="473" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_11_di" bpmnElement="flow_11">
+        <di:waypoint x="1415" y="395"/>
+        <di:waypoint x="1415" y="72"/>
+        <di:waypoint x="890" y="72"/>
+        <di:waypoint x="890" y="110"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_12_di" bpmnElement="flow_12">
+        <di:waypoint x="1660" y="520"/>
+        <di:waypoint x="1660" y="345"/>
+        <di:waypoint x="1765" y="345"/>
+        <di:waypoint x="1765" y="175"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_13_di" bpmnElement="flow_13">
+        <di:waypoint x="1765" y="175"/>
+        <di:waypoint x="1765" y="355"/>
+        <di:waypoint x="2202" y="355"/>
+        <di:waypoint x="2202" y="520"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_14_di" bpmnElement="flow_14">
+        <di:waypoint x="2560" y="618"/>
+        <di:waypoint x="2640" y="618"/>
+        <di:waypoint x="2640" y="325"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_15_di" bpmnElement="flow_15">
+        <di:waypoint x="2560" y="702"/>
+        <di:waypoint x="3005" y="702"/>
+        <di:waypoint x="3005" y="285"/>
+        <di:waypoint x="2865" y="285"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_16_di" bpmnElement="flow_16">
+        <di:waypoint x="2542" y="660"/>
+        <di:waypoint x="2700" y="660"/>
+        <di:waypoint x="2700" y="135"/>
+        <di:waypoint x="2590" y="135"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_17_di" bpmnElement="flow_17">
+        <di:waypoint x="2690" y="135"/>
+        <di:waypoint x="2797" y="135"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_18_di" bpmnElement="flow_18">
+        <di:waypoint x="2815" y="325"/>
+        <di:waypoint x="2815" y="410"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_19_di" bpmnElement="flow_19">
+        <di:waypoint x="2640" y="325"/>
+        <di:waypoint x="2640" y="370"/>
+        <di:waypoint x="2815" y="370"/>
+        <di:waypoint x="2815" y="410"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_20_di" bpmnElement="flow_20">
+        <di:waypoint x="2840" y="435"/>
+        <di:waypoint x="2972" y="435"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_SEND_if_0_di" bpmnElement="SP_SEND_if_0">
+        <di:waypoint x="1086" y="598"/>
+        <di:waypoint x="1147" y="598"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_SEND_if_1_di" bpmnElement="SP_SEND_if_1">
+        <di:waypoint x="1247" y="598"/>
+        <di:waypoint x="1302" y="598"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_SEND_if_2_di" bpmnElement="SP_SEND_if_2">
+        <di:waypoint x="1352" y="598"/>
+        <di:waypoint x="1439" y="598"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_SEND_if_3_di" bpmnElement="SP_SEND_if_3">
+        <di:waypoint x="1327" y="623"/>
+        <di:waypoint x="1327" y="664"/>
+        <di:waypoint x="1457" y="664"/>
+        <di:waypoint x="1457" y="704"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_SEND_if_4_di" bpmnElement="SP_SEND_if_4">
+        <di:waypoint x="1475" y="598"/>
+        <di:waypoint x="1568" y="598"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_SEND_if_5_di" bpmnElement="SP_SEND_if_5">
+        <di:waypoint x="1475" y="722"/>
+        <di:waypoint x="1568" y="722"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_DELIV_if_0_di" bpmnElement="SP_DELIV_if_0">
+        <di:waypoint x="1977" y="598"/>
+        <di:waypoint x="2096" y="598"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_DELIV_if_1_di" bpmnElement="SP_DELIV_if_1">
+        <di:waypoint x="2146" y="598"/>
+        <di:waypoint x="2265" y="598"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_DELIV_if_2_di" bpmnElement="SP_DELIV_if_2">
+        <di:waypoint x="2121" y="623"/>
+        <di:waypoint x="2121" y="664"/>
+        <di:waypoint x="2283" y="664"/>
+        <di:waypoint x="2283" y="704"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_DELIV_if_3_di" bpmnElement="SP_DELIV_if_3">
+        <di:waypoint x="2301" y="598"/>
+        <di:waypoint x="2427" y="598"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_DELIV_if_4_di" bpmnElement="SP_DELIV_if_4">
+        <di:waypoint x="2301" y="722"/>
+        <di:waypoint x="2427" y="722"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_0_di" bpmnElement="msg_0">
+        <di:waypoint x="1197" y="638"/>
+        <di:waypoint x="1197" y="920"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1151" y="773" width="120" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_1_di" bpmnElement="msg_1">
+        <di:waypoint x="1457" y="920"/>
+        <di:waypoint x="1457" y="616"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1411" y="762" width="120" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_2_di" bpmnElement="msg_2">
+        <di:waypoint x="1457" y="920"/>
+        <di:waypoint x="1457" y="740"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1411" y="824" width="120" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_3_di" bpmnElement="msg_3">
+        <di:waypoint x="2283" y="920"/>
+        <di:waypoint x="2283" y="616"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2237" y="762" width="120" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_4_di" bpmnElement="msg_4">
+        <di:waypoint x="2283" y="920"/>
+        <di:waypoint x="2283" y="740"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2237" y="824" width="120" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_5_di" bpmnElement="msg_5">
+        <di:waypoint x="1550" y="984"/>
+        <di:waypoint x="1550" y="1000"/>
+        <di:waypoint x="1584" y="1000"/>
+        <di:waypoint x="1584" y="1016"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1504" y="986" width="120" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
