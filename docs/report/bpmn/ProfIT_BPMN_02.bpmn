@@ -168,10 +168,10 @@
         <bpmndi:BPMNLabel><dc:Bounds x="514" y="201" width="80" height="14"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="flow_3_di" bpmnElement="flow_3">
-        <di:waypoint x="540" y="260"/>
-        <di:waypoint x="540" y="135"/>
-        <di:waypoint x="665" y="135"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="514" y="192" width="80" height="14"/></bpmndi:BPMNLabel>
+        <di:waypoint x="565" y="285"/>
+        <di:waypoint x="715" y="285"/>
+        <di:waypoint x="715" y="175"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="600" y="267" width="80" height="14"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="flow_4_di" bpmnElement="flow_4">
         <di:waypoint x="765" y="135"/>
