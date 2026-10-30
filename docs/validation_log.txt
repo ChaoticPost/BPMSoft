@@ -1,13 +1,13 @@
 === ProfIT spec validation ===
-date: 2026-10-24T20:28:14.061Z
+date: 2026-10-30T11:58:26.437Z
 node: v24.18.0
 npm: 11.16.0
 prism: 5.16.0
 @apidevtools/swagger-parser: 12.1.0
 @asyncapi/parser: 3.6.5
-git HEAD: 36c7789d3f03dff1a5331b87fe66172746794c3d
+git HEAD: 99ae9c4235440406d0c322ef9a4ec145d9782d89
 git working tree: DIRTY (uncommitted changes)
-git write-tree: 5a70fa11b6788416486363bb0dd96a211d1480be
+git write-tree: bc160d3ee5c7a1968428e0d4583de98e78571cab
 
 OpenAPI  OK  3.0.3  paths=12  ops=12
   securitySchemes: CommerceApiKey, MailWebhookSignature, AttemptTokenAuth
@@ -21,22 +21,17 @@ NOTE: YAML/отчёт ещё не в одном коммите — закомм�
 Log saved: /Users/daria/Code/Projects/BPMSoft/docs/validation_log.txt
 
 === working tree ===
-date: 2026-10-24T20:28:14Z
+date: 2026-10-30T11:58:26Z
 git status --short:
- M README.md
- M asyncapi.yaml
- M docs/ProfIT_API_design_analysis.md
- M openapi.yaml
- M package.json
- M scripts/check-specs.js
- M scripts/smoke-mock.js
-?? docs/teacher_review_fixes.md
-?? docs/validation_log.txt
-?? scripts/run-evidence.sh
-git write-tree (content fingerprint): 5a70fa11b6788416486363bb0dd96a211d1480be
+ M docs/report/profit-api-practice4.pdf
+ M docs/report/profit-api-practice4.typ
+ M docs/validation_log.txt
+?? docs/report/header.typ
+?? docs/report/images/
+git write-tree (content fingerprint): bc160d3ee5c7a1968428e0d4583de98e78571cab
 
 === smoke (mock) ===
-date: 2026-10-24T20:28:15Z
+date: 2026-10-30T11:58:27Z
 
 > smoke
 > node scripts/smoke-mock.js
