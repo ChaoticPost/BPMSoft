@@ -78,6 +78,7 @@ info:
     name: ProfIT / РТУ МИРЭА АПиРПС
   license:
     name: Proprietary — academic use
+    url: https://github.com/ChaoticPost/BPMSoft
 
 externalDocs:
   description: |
@@ -530,12 +531,18 @@ paths:
       responses:
         '201':
           description: Покупка зафиксирована (первая обработка)
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfirmPurchaseResponse'
         '200':
           description: Идемпотентный повтор — возвращён исходный результат
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
@@ -617,6 +624,9 @@ paths:
       responses:
         '202':
           description: Пакет принят к обработке
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
@@ -704,6 +714,9 @@ paths:
       responses:
         '202':
           description: Событие принято к обработке
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationId'
           content:
             application/json:
               schema:
@@ -1344,11 +1357,6 @@ components:
       type: string
       description: Жизненный цикл PromoCode
       enum: [CREATED, READY_TO_ACTIVATE, ACTIVATED, CANCELLED, ANNULLED]
-
-    PromoGround:
-      type: string
-      description: Ровно одно основание выдачи
-      enum: [GAME, TEST]
 
     PromoRejectionReason:
       type: string
