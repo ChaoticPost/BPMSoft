@@ -150,52 +150,52 @@ function routeEdge(spec, f, ctx) {
   if (exit === 'right' && enter === 'left') {
     if (sameY) return [EP, TP];
     const midX = f.midX ?? (s.r + d.l) / 2;
-    return [EP, [midX, s.cy], [midX, d.cy], TP];
+    return [EP, [midX, EP[1]], [midX, TP[1]], TP];
   }
   if (exit === 'top' && enter === 'bottom') {
     if (sameX) return [EP, TP];
     const midY = f.midY ?? (s.t + d.b) / 2;
-    return [EP, [s.cx, midY], [d.cx, midY], TP];
+    return [EP, [EP[0], midY], [TP[0], midY], TP];
   }
   if (exit === 'bottom' && enter === 'top') {
     if (sameX) return [EP, TP];
     const midY = f.midY ?? (s.b + d.t) / 2;
-    return [EP, [s.cx, midY], [d.cx, midY], TP];
+    return [EP, [EP[0], midY], [TP[0], midY], TP];
   }
   if (exit === 'top' && (enter === 'left' || enter === 'right'))
-    return [EP, [s.cx, d.cy], TP];
+    return [EP, [EP[0], TP[1]], TP];
   if (exit === 'bottom' && (enter === 'left' || enter === 'right'))
-    return [EP, [s.cx, d.cy], TP];
+    return [EP, [EP[0], TP[1]], TP];
   if (exit === 'right' && enter === 'top')
-    return [EP, [d.cx, s.cy], TP];
+    return [EP, [TP[0], EP[1]], TP];
   if (exit === 'right' && enter === 'bottom')
-    return [EP, [d.cx, s.cy], TP];
+    return [EP, [TP[0], EP[1]], TP];
   if (exit === 'left' && enter === 'top')
-    return [EP, [d.cx, s.cy], TP];
+    return [EP, [TP[0], EP[1]], TP];
   if (exit === 'left' && enter === 'bottom')
-    return [EP, [d.cx, s.cy], TP];
+    return [EP, [TP[0], EP[1]], TP];
   if (exit === 'bottom' && enter === 'left')
-    return [EP, [s.cx, d.cy], TP];
+    return [EP, [EP[0], TP[1]], TP];
   if (exit === 'bottom' && enter === 'right')
-    return [EP, [s.cx, d.cy], TP];
+    return [EP, [EP[0], TP[1]], TP];
   if (exit === 'top' && enter === 'right')
-    return [EP, [s.cx, d.cy], TP];
+    return [EP, [EP[0], TP[1]], TP];
   if (exit === 'left' && enter === 'left')
-    return [EP, [f.midX ?? Math.min(s.l, d.l) - 24, s.cy], [f.midX ?? Math.min(s.l, d.l) - 24, d.cy], TP];
+    return [EP, [f.midX ?? Math.min(s.l, d.l) - 24, EP[1]], [f.midX ?? Math.min(s.l, d.l) - 24, TP[1]], TP];
   if (exit === 'right' && enter === 'right')
-    return [EP, [f.midX ?? Math.max(s.r, d.r) + 24, s.cy], [f.midX ?? Math.max(s.r, d.r) + 24, d.cy], TP];
+    return [EP, [f.midX ?? Math.max(s.r, d.r) + 24, EP[1]], [f.midX ?? Math.max(s.r, d.r) + 24, TP[1]], TP];
   if (exit === 'top' && enter === 'top')
-    return [EP, [s.cx, f.midY ?? Math.min(s.t, d.t) - 24], [d.cx, f.midY ?? Math.min(s.t, d.t) - 24], TP];
+    return [EP, [EP[0], f.midY ?? Math.min(s.t, d.t) - 24], [TP[0], f.midY ?? Math.min(s.t, d.t) - 24], TP];
   if (exit === 'bottom' && enter === 'bottom')
-    return [EP, [s.cx, f.midY ?? Math.max(s.b, d.b) + 24], [d.cx, f.midY ?? Math.max(s.b, d.b) + 24], TP];
+    return [EP, [EP[0], f.midY ?? Math.max(s.b, d.b) + 24], [TP[0], f.midY ?? Math.max(s.b, d.b) + 24], TP];
   if (exit === 'left' && enter === 'right')
-    return [EP, [f.midX ?? (s.l + d.r) / 2, s.cy], [f.midX ?? (s.l + d.r) / 2, d.cy], TP];
+    return [EP, [f.midX ?? (s.l + d.r) / 2, EP[1]], [f.midX ?? (s.l + d.r) / 2, TP[1]], TP];
   // rails for backward edges
   if (f.rail !== undefined || f.railSide === 'top' || f.railSide === 'bottom') {
     const railY = f.rail ?? (f.railSide === 'top' ? Math.min(s.t, d.t) - 42 : Math.max(s.b, d.b) + 42);
     const top = railY < Math.min(s.t, d.t);
     const ey1 = top ? s.t : s.b, ey2 = top ? d.t : d.b;
-    return [[s.cx, ey1], [s.cx, railY], [d.cx, railY], [d.cx, ey2]];
+    return [[EP[0], ey1], [EP[0], railY], [TP[0], railY], [TP[0], ey2]];
   }
   return [EP, TP];
 }
@@ -385,6 +385,7 @@ export function buildXml(spec) {
 }
 
 function routeMsg(spec, m, ctx) {
+  if (m.via) return m.via;
   const a = ctx.byId[m.from] ? rect(ctx.byId[m.from]) : ctx.ext[m.from];
   const b = ctx.byId[m.to] ? rect(ctx.byId[m.to]) : ctx.ext[m.to];
   if (!a || !b) throw new Error(`bad message flow ${m.id}`);
@@ -464,6 +465,20 @@ export function lintGeometry(spec) {
     for (const ch of n.children || []) put(ch);
     for (const b of n.boundary || []) put(b);
   }
+  const byIdRect = Object.fromEntries(rects.map((r) => [r.id, r]));
+
+  const sideOf = ([px, py], R) => {
+    const cand = [
+      ['left', Math.abs(px - R.l)], ['right', Math.abs(px - R.r)],
+      ['top', Math.abs(py - R.t)], ['bottom', Math.abs(py - R.b)],
+    ];
+    cand.sort((a, b) => a[1] - b[1]);
+    return cand[0][1] < 4 ? cand[0][0] : null;
+  };
+  const dirOK = { right: [1, 0], left: [-1, 0], top: [0, -1], bottom: [0, 1] };
+  const segDir = ([x1, y1], [x2, y2]) =>
+    (Math.abs(x2 - x1) < 1 && Math.abs(y2 - y1) < 1) ? null
+      : (Math.abs(x2 - x1) >= Math.abs(y2 - y1) ? [Math.sign(x2 - x1), 0] : [0, Math.sign(y2 - y1)]);
 
   const checkEdge = (f, pts, excludeIds) => {
     const excl = new Set(excludeIds);
@@ -476,6 +491,25 @@ export function lintGeometry(spec) {
           break;
         }
       }
+    }
+    // an edge entering side X must approach from that side, not pierce the block
+    const sR = byIdRect[f.from]?.R, dR = byIdRect[f.to]?.R;
+    if (sR) {
+      const side = sideOf(pts[0], sR);
+      let dir = null;
+      for (let i = 0; i < pts.length - 1 && !dir; i++) dir = segDir(pts[i], pts[i + 1]);
+      const want = side && dirOK[side];
+      if (want && dir && (dir[0] !== want[0] || dir[1] !== want[1]))
+        problems.push(`${spec.file}: ${f.id} (${f.from}->${f.to}) exits ${f.from} via ${side} but first segment goes opposite`);
+    }
+    if (dR) {
+      const side = sideOf(pts[pts.length - 1], dR);
+      let dir = null;
+      for (let i = pts.length - 2; i >= 0 && !dir; i--) dir = segDir(pts[i], pts[i + 1]);
+      const want = side && dirOK[side];
+      // entering side S requires moving INTO the block — opposite of the outward direction
+      if (want && dir && (dir[0] !== -want[0] || dir[1] !== -want[1]))
+        problems.push(`${spec.file}: ${f.id} (${f.from}->${f.to}) enters ${f.to} via ${side} but approaches from opposite side`);
     }
   };
 
