@@ -1,0 +1,456 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_ProfIT_BPMN_07" targetNamespace="http://bpmn.io/schema/bpmn" exporter="ProfIT BPMN build" exporterVersion="1.0">
+  <bpmn:collaboration id="Collab_ProfIT_BPMN_07">
+    <bpmn:participant id="Pool_ProfIT_BPMN_07" name="ProfIT — отмена, истечение сроков и аннуляция промокода (BPMN-07)" processRef="Process_ProfIT_BPMN_07"/>
+  </bpmn:collaboration>
+  <bpmn:process id="Process_ProfIT_BPMN_07" name="ProfIT — отмена, истечение сроков и аннуляция промокода (BPMN-07)" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_ProfIT_BPMN_07">
+      <bpmn:lane id="lane_own" name="Владелец ProfIT">
+        <bpmn:flowNodeRef>S_C</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_C</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_sys" name="Платформа BPMSoft">
+        <bpmn:flowNodeRef>S_A</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>SP_A</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_RA</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>S_B</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>SP_B</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_RB</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>SP_C</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>G_RC</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>J_D1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>J_D2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E_DONE</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>J_N1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>J_N2</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E_NO</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="S_C" name="Запрос владельца на отмену промокода">
+      <bpmn:outgoing>flow_8</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="T_C" name="Ввести причину отмены">
+      <bpmn:incoming>flow_8</bpmn:incoming>
+      <bpmn:outgoing>flow_9</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:startEvent id="S_A" name="Плановая проверка deliveryDeadlineAt">
+      <bpmn:outgoing>flow_0</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="ted_S_A"/>
+    </bpmn:startEvent>
+    <bpmn:subProcess id="SP_A" name="Аннуляция по таймауту отправки">
+      <bpmn:incoming>flow_0</bpmn:incoming>
+      <bpmn:outgoing>flow_1</bpmn:outgoing>
+      <bpmn:startEvent id="aS" name="Проверка запущена">
+        <bpmn:outgoing>SP_A_if_0</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:serviceTask id="aST" name="Найти CREATED с истёкшим сроком">
+        <bpmn:incoming>SP_A_if_0</bpmn:incoming>
+        <bpmn:outgoing>SP_A_if_1</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="aG" name="Есть просроченные?">
+        <bpmn:incoming>SP_A_if_1</bpmn:incoming>
+        <bpmn:outgoing>SP_A_if_2</bpmn:outgoing>
+        <bpmn:outgoing>SP_A_if_3</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="aST2" name="Аннулировать: ANNULLED, DISPATCH_TIMEOUT">
+        <bpmn:incoming>SP_A_if_2</bpmn:incoming>
+        <bpmn:outgoing>SP_A_if_4</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="aE1" name="Аннулировано">
+        <bpmn:incoming>SP_A_if_4</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:endEvent id="aE2" name="Без изменений">
+        <bpmn:incoming>SP_A_if_3</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="SP_A_if_0" sourceRef="aS" targetRef="aST"/>
+      <bpmn:sequenceFlow id="SP_A_if_1" sourceRef="aST" targetRef="aG"/>
+      <bpmn:sequenceFlow id="SP_A_if_2" name="Да" sourceRef="aG" targetRef="aST2"/>
+      <bpmn:sequenceFlow id="SP_A_if_3" name="Нет" sourceRef="aG" targetRef="aE2"/>
+      <bpmn:sequenceFlow id="SP_A_if_4" sourceRef="aST2" targetRef="aE1"/>
+    </bpmn:subProcess>
+    <bpmn:exclusiveGateway id="G_RA" name="Код аннулирован?">
+      <bpmn:incoming>flow_1</bpmn:incoming>
+      <bpmn:outgoing>flow_2</bpmn:outgoing>
+      <bpmn:outgoing>flow_3</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:startEvent id="S_B" name="Плановая проверка expiresAt">
+      <bpmn:outgoing>flow_4</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="ted_S_B"/>
+    </bpmn:startEvent>
+    <bpmn:subProcess id="SP_B" name="Аннуляция по истечении годности">
+      <bpmn:incoming>flow_4</bpmn:incoming>
+      <bpmn:outgoing>flow_5</bpmn:outgoing>
+      <bpmn:startEvent id="bS" name="Проверка запущена">
+        <bpmn:outgoing>SP_B_if_0</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:serviceTask id="bST" name="Найти READY_TO_ACTIVATE с истёкшим сроком">
+        <bpmn:incoming>SP_B_if_0</bpmn:incoming>
+        <bpmn:outgoing>SP_B_if_1</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="bG" name="Есть просроченные?">
+        <bpmn:incoming>SP_B_if_1</bpmn:incoming>
+        <bpmn:outgoing>SP_B_if_2</bpmn:outgoing>
+        <bpmn:outgoing>SP_B_if_3</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="bST2" name="Аннулировать: ANNULLED, VALIDITY_EXPIRED">
+        <bpmn:incoming>SP_B_if_2</bpmn:incoming>
+        <bpmn:outgoing>SP_B_if_4</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="bE1" name="Аннулировано">
+        <bpmn:incoming>SP_B_if_4</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:endEvent id="bE2" name="Без изменений">
+        <bpmn:incoming>SP_B_if_3</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="SP_B_if_0" sourceRef="bS" targetRef="bST"/>
+      <bpmn:sequenceFlow id="SP_B_if_1" sourceRef="bST" targetRef="bG"/>
+      <bpmn:sequenceFlow id="SP_B_if_2" name="Да" sourceRef="bG" targetRef="bST2"/>
+      <bpmn:sequenceFlow id="SP_B_if_3" name="Нет" sourceRef="bG" targetRef="bE2"/>
+      <bpmn:sequenceFlow id="SP_B_if_4" sourceRef="bST2" targetRef="bE1"/>
+    </bpmn:subProcess>
+    <bpmn:exclusiveGateway id="G_RB" name="Код аннулирован?">
+      <bpmn:incoming>flow_5</bpmn:incoming>
+      <bpmn:outgoing>flow_6</bpmn:outgoing>
+      <bpmn:outgoing>flow_7</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:subProcess id="SP_C" name="Ручная отмена промокода">
+      <bpmn:incoming>flow_9</bpmn:incoming>
+      <bpmn:outgoing>flow_10</bpmn:outgoing>
+      <bpmn:startEvent id="cS" name="Причина введена">
+        <bpmn:outgoing>SP_C_if_0</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:serviceTask id="cST" name="Проверить OWNER, PROMO_CANCEL и статус">
+        <bpmn:incoming>SP_C_if_0</bpmn:incoming>
+        <bpmn:outgoing>SP_C_if_1</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:exclusiveGateway id="cG" name="Отмена допустима?">
+        <bpmn:incoming>SP_C_if_1</bpmn:incoming>
+        <bpmn:outgoing>SP_C_if_2</bpmn:outgoing>
+        <bpmn:outgoing>SP_C_if_3</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="cST2" name="Отменить: CANCELLED, cancelledAt, причина">
+        <bpmn:incoming>SP_C_if_2</bpmn:incoming>
+        <bpmn:outgoing>SP_C_if_4</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:endEvent id="cE1" name="Отменено">
+        <bpmn:incoming>SP_C_if_4</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:endEvent id="cE2" name="Без изменений">
+        <bpmn:incoming>SP_C_if_3</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="SP_C_if_0" sourceRef="cS" targetRef="cST"/>
+      <bpmn:sequenceFlow id="SP_C_if_1" sourceRef="cST" targetRef="cG"/>
+      <bpmn:sequenceFlow id="SP_C_if_2" name="Да" sourceRef="cG" targetRef="cST2"/>
+      <bpmn:sequenceFlow id="SP_C_if_3" name="Нет" sourceRef="cG" targetRef="cE2"/>
+      <bpmn:sequenceFlow id="SP_C_if_4" sourceRef="cST2" targetRef="cE1"/>
+    </bpmn:subProcess>
+    <bpmn:exclusiveGateway id="G_RC" name="Код отменён?">
+      <bpmn:incoming>flow_10</bpmn:incoming>
+      <bpmn:outgoing>flow_11</bpmn:outgoing>
+      <bpmn:outgoing>flow_12</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:exclusiveGateway id="J_D1" name="">
+      <bpmn:incoming>flow_2</bpmn:incoming>
+      <bpmn:incoming>flow_6</bpmn:incoming>
+      <bpmn:outgoing>flow_13</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:exclusiveGateway id="J_D2" name="">
+      <bpmn:incoming>flow_11</bpmn:incoming>
+      <bpmn:incoming>flow_13</bpmn:incoming>
+      <bpmn:outgoing>flow_14</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="E_DONE" name="Состояние промокода зафиксировано">
+      <bpmn:incoming>flow_14</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:exclusiveGateway id="J_N1" name="">
+      <bpmn:incoming>flow_3</bpmn:incoming>
+      <bpmn:incoming>flow_7</bpmn:incoming>
+      <bpmn:outgoing>flow_15</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:exclusiveGateway id="J_N2" name="">
+      <bpmn:incoming>flow_12</bpmn:incoming>
+      <bpmn:incoming>flow_15</bpmn:incoming>
+      <bpmn:outgoing>flow_16</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="E_NO" name="Проверено, изменений не внесено">
+      <bpmn:incoming>flow_16</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_0" sourceRef="S_A" targetRef="SP_A"/>
+    <bpmn:sequenceFlow id="flow_1" sourceRef="SP_A" targetRef="G_RA"/>
+    <bpmn:sequenceFlow id="flow_2" name="Да" sourceRef="G_RA" targetRef="J_D1"/>
+    <bpmn:sequenceFlow id="flow_3" name="Нет" sourceRef="G_RA" targetRef="J_N1"/>
+    <bpmn:sequenceFlow id="flow_4" sourceRef="S_B" targetRef="SP_B"/>
+    <bpmn:sequenceFlow id="flow_5" sourceRef="SP_B" targetRef="G_RB"/>
+    <bpmn:sequenceFlow id="flow_6" name="Да" sourceRef="G_RB" targetRef="J_D1"/>
+    <bpmn:sequenceFlow id="flow_7" name="Нет" sourceRef="G_RB" targetRef="J_N1"/>
+    <bpmn:sequenceFlow id="flow_8" sourceRef="S_C" targetRef="T_C"/>
+    <bpmn:sequenceFlow id="flow_9" sourceRef="T_C" targetRef="SP_C"/>
+    <bpmn:sequenceFlow id="flow_10" sourceRef="SP_C" targetRef="G_RC"/>
+    <bpmn:sequenceFlow id="flow_11" name="Да" sourceRef="G_RC" targetRef="J_D2"/>
+    <bpmn:sequenceFlow id="flow_12" name="Нет" sourceRef="G_RC" targetRef="J_N2"/>
+    <bpmn:sequenceFlow id="flow_13" sourceRef="J_D1" targetRef="J_D2"/>
+    <bpmn:sequenceFlow id="flow_14" sourceRef="J_D2" targetRef="E_DONE"/>
+    <bpmn:sequenceFlow id="flow_15" sourceRef="J_N1" targetRef="J_N2"/>
+    <bpmn:sequenceFlow id="flow_16" sourceRef="J_N2" targetRef="E_NO"/>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDI_ProfIT_BPMN_07">
+    <bpmndi:BPMNPlane id="BPMNPlane_ProfIT_BPMN_07" bpmnElement="Collab_ProfIT_BPMN_07">
+      <bpmndi:BPMNShape id="Pool_ProfIT_BPMN_07_di" bpmnElement="Pool_ProfIT_BPMN_07" isHorizontal="true"><dc:Bounds x="60" y="60" width="1997" height="1050"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="lane_own_di" bpmnElement="lane_own" isHorizontal="true"><dc:Bounds x="90" y="60" width="1967" height="150"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="lane_sys_di" bpmnElement="lane_sys" isHorizontal="true"><dc:Bounds x="90" y="210" width="1967" height="900"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_C_di" bpmnElement="S_C"><dc:Bounds x="172" y="117" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="90" y="157" width="200" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="T_C_di" bpmnElement="T_C"><dc:Bounds x="1015" y="95" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_A_di" bpmnElement="S_A"><dc:Bounds x="172" y="267" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="90" y="307" width="200" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SP_A_di" bpmnElement="SP_A" isExpanded="true"><dc:Bounds x="287" y="220" width="680" height="280"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="527" y="222" width="200" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="aS_di" bpmnElement="aS"><dc:Bounds x="350" y="280" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="308" y="320" width="119" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="aST_di" bpmnElement="aST"><dc:Bounds x="447" y="258" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="aG_di" bpmnElement="aG"><dc:Bounds x="602" y="273" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="564" y="327" width="126" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="aST2_di" bpmnElement="aST2"><dc:Bounds x="707" y="258" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="aE1_di" bpmnElement="aE1"><dc:Bounds x="868" y="280" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="844" y="320" width="84" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="aE2_di" bpmnElement="aE2"><dc:Bounds x="609" y="404" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="582" y="444" width="91" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_RA_di" bpmnElement="G_RA"><dc:Bounds x="1040" y="260" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1009" y="314" width="112" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_B_di" bpmnElement="S_B"><dc:Bounds x="172" y="567" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="95" y="607" width="189" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SP_B_di" bpmnElement="SP_B" isExpanded="true"><dc:Bounds x="287" y="520" width="680" height="280"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="527" y="522" width="200" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="bS_di" bpmnElement="bS"><dc:Bounds x="350" y="580" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="308" y="620" width="119" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="bST_di" bpmnElement="bST"><dc:Bounds x="447" y="558" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="bG_di" bpmnElement="bG"><dc:Bounds x="602" y="573" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="564" y="627" width="126" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="bST2_di" bpmnElement="bST2"><dc:Bounds x="707" y="558" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="bE1_di" bpmnElement="bE1"><dc:Bounds x="868" y="580" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="844" y="620" width="84" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="bE2_di" bpmnElement="bE2"><dc:Bounds x="609" y="704" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="582" y="744" width="91" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_RB_di" bpmnElement="G_RB"><dc:Bounds x="1040" y="560" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1009" y="614" width="112" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="SP_C_di" bpmnElement="SP_C" isExpanded="true"><dc:Bounds x="637" y="820" width="680" height="280"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="897" y="822" width="161" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="cS_di" bpmnElement="cS"><dc:Bounds x="700" y="880" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="665" y="920" width="105" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="cST_di" bpmnElement="cST"><dc:Bounds x="797" y="858" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="cG_di" bpmnElement="cG"><dc:Bounds x="952" y="873" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="918" y="927" width="119" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="cST2_di" bpmnElement="cST2"><dc:Bounds x="1057" y="858" width="100" height="80"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="cE1_di" bpmnElement="cE1"><dc:Bounds x="1218" y="880" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1206" y="920" width="60" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="cE2_di" bpmnElement="cE2"><dc:Bounds x="959" y="1004" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="932" y="1044" width="91" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="G_RC_di" bpmnElement="G_RC"><dc:Bounds x="1390" y="860" width="50" height="50"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1373" y="914" width="84" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="J_D1_di" bpmnElement="J_D1"><dc:Bounds x="1215" y="260" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="J_D2_di" bpmnElement="J_D2"><dc:Bounds x="1390" y="260" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_DONE_di" bpmnElement="E_DONE"><dc:Bounds x="1572" y="267" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1490" y="307" width="200" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="J_N1_di" bpmnElement="J_N1"><dc:Bounds x="1565" y="1010" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="J_N2_di" bpmnElement="J_N2"><dc:Bounds x="1740" y="1010" width="50" height="50"/>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_NO_di" bpmnElement="E_NO"><dc:Bounds x="1922" y="1017" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1840" y="1057" width="200" height="30"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="flow_0_di" bpmnElement="flow_0">
+        <di:waypoint x="208" y="285"/>
+        <di:waypoint x="240" y="285"/>
+        <di:waypoint x="240" y="360"/>
+        <di:waypoint x="287" y="360"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_1_di" bpmnElement="flow_1">
+        <di:waypoint x="967" y="360"/>
+        <di:waypoint x="1003" y="360"/>
+        <di:waypoint x="1003" y="285"/>
+        <di:waypoint x="1040" y="285"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_2_di" bpmnElement="flow_2">
+        <di:waypoint x="1090" y="285"/>
+        <di:waypoint x="1215" y="285"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1112" y="267" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_3_di" bpmnElement="flow_3">
+        <di:waypoint x="1090" y="285"/>
+        <di:waypoint x="1340" y="285"/>
+        <di:waypoint x="1340" y="1035"/>
+        <di:waypoint x="1565" y="1035"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1175" y="267" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_4_di" bpmnElement="flow_4">
+        <di:waypoint x="208" y="585"/>
+        <di:waypoint x="240" y="585"/>
+        <di:waypoint x="240" y="660"/>
+        <di:waypoint x="287" y="660"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_5_di" bpmnElement="flow_5">
+        <di:waypoint x="967" y="660"/>
+        <di:waypoint x="1003" y="660"/>
+        <di:waypoint x="1003" y="585"/>
+        <di:waypoint x="1040" y="585"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_6_di" bpmnElement="flow_6">
+        <di:waypoint x="1090" y="585"/>
+        <di:waypoint x="1120" y="585"/>
+        <di:waypoint x="1120" y="285"/>
+        <di:waypoint x="1215" y="285"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1065" y="567" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_7_di" bpmnElement="flow_7">
+        <di:waypoint x="1090" y="585"/>
+        <di:waypoint x="1355" y="585"/>
+        <di:waypoint x="1355" y="1035"/>
+        <di:waypoint x="1565" y="1035"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1182" y="567" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_8_di" bpmnElement="flow_8">
+        <di:waypoint x="208" y="135"/>
+        <di:waypoint x="1015" y="135"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_9_di" bpmnElement="flow_9">
+        <di:waypoint x="1065" y="175"/>
+        <di:waypoint x="1065" y="498"/>
+        <di:waypoint x="977" y="498"/>
+        <di:waypoint x="1000" y="820"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_10_di" bpmnElement="flow_10">
+        <di:waypoint x="1317" y="960"/>
+        <di:waypoint x="1347" y="960"/>
+        <di:waypoint x="1347" y="885"/>
+        <di:waypoint x="1390" y="885"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_11_di" bpmnElement="flow_11">
+        <di:waypoint x="1415" y="860"/>
+        <di:waypoint x="1415" y="585"/>
+        <di:waypoint x="1415" y="585"/>
+        <di:waypoint x="1415" y="310"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1389" y="717" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_12_di" bpmnElement="flow_12">
+        <di:waypoint x="1415" y="910"/>
+        <di:waypoint x="1415" y="947"/>
+        <di:waypoint x="1765" y="947"/>
+        <di:waypoint x="1765" y="1010"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1389" y="923" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_13_di" bpmnElement="flow_13">
+        <di:waypoint x="1265" y="285"/>
+        <di:waypoint x="1390" y="285"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_14_di" bpmnElement="flow_14">
+        <di:waypoint x="1440" y="285"/>
+        <di:waypoint x="1572" y="285"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_15_di" bpmnElement="flow_15">
+        <di:waypoint x="1615" y="1035"/>
+        <di:waypoint x="1740" y="1035"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_16_di" bpmnElement="flow_16">
+        <di:waypoint x="1790" y="1035"/>
+        <di:waypoint x="1922" y="1035"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_A_if_0_di" bpmnElement="SP_A_if_0">
+        <di:waypoint x="386" y="298"/>
+        <di:waypoint x="447" y="298"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_A_if_1_di" bpmnElement="SP_A_if_1">
+        <di:waypoint x="547" y="298"/>
+        <di:waypoint x="602" y="298"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_A_if_2_di" bpmnElement="SP_A_if_2">
+        <di:waypoint x="652" y="298"/>
+        <di:waypoint x="707" y="298"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="639" y="280" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_A_if_3_di" bpmnElement="SP_A_if_3">
+        <di:waypoint x="627" y="323"/>
+        <di:waypoint x="627" y="404"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="601" y="358" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_A_if_4_di" bpmnElement="SP_A_if_4">
+        <di:waypoint x="807" y="298"/>
+        <di:waypoint x="868" y="298"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_B_if_0_di" bpmnElement="SP_B_if_0">
+        <di:waypoint x="386" y="598"/>
+        <di:waypoint x="447" y="598"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_B_if_1_di" bpmnElement="SP_B_if_1">
+        <di:waypoint x="547" y="598"/>
+        <di:waypoint x="602" y="598"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_B_if_2_di" bpmnElement="SP_B_if_2">
+        <di:waypoint x="652" y="598"/>
+        <di:waypoint x="707" y="598"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="639" y="580" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_B_if_3_di" bpmnElement="SP_B_if_3">
+        <di:waypoint x="627" y="623"/>
+        <di:waypoint x="627" y="704"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="601" y="658" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_B_if_4_di" bpmnElement="SP_B_if_4">
+        <di:waypoint x="807" y="598"/>
+        <di:waypoint x="868" y="598"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_C_if_0_di" bpmnElement="SP_C_if_0">
+        <di:waypoint x="736" y="898"/>
+        <di:waypoint x="797" y="898"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_C_if_1_di" bpmnElement="SP_C_if_1">
+        <di:waypoint x="897" y="898"/>
+        <di:waypoint x="952" y="898"/>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_C_if_2_di" bpmnElement="SP_C_if_2">
+        <di:waypoint x="1002" y="898"/>
+        <di:waypoint x="1057" y="898"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="989" y="880" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_C_if_3_di" bpmnElement="SP_C_if_3">
+        <di:waypoint x="977" y="923"/>
+        <di:waypoint x="977" y="1004"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="951" y="958" width="80" height="14"/></bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="SP_C_if_4_di" bpmnElement="SP_C_if_4">
+        <di:waypoint x="1157" y="898"/>
+        <di:waypoint x="1218" y="898"/>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
