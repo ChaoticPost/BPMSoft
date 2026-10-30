@@ -288,8 +288,8 @@
       <bpmndi:BPMNShape id="iACC_di" bpmnElement="iACC"><dc:Bounds x="1439" y="580" width="36" height="36"/>
         <bpmndi:BPMNLabel><dc:Bounds x="1387" y="620" width="140" height="30"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="iFAIL_di" bpmnElement="iFAIL"><dc:Bounds x="1439" y="704" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="1380" y="744" width="154" height="30"/></bpmndi:BPMNLabel>
+      <bpmndi:BPMNShape id="iFAIL_di" bpmnElement="iFAIL"><dc:Bounds x="1309" y="704" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1250" y="744" width="154" height="30"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="iE_OK_di" bpmnElement="iE_OK"><dc:Bounds x="1568" y="580" width="36" height="36"/>
         <bpmndi:BPMNLabel><dc:Bounds x="1520" y="620" width="133" height="30"/></bpmndi:BPMNLabel>
@@ -315,8 +315,8 @@
       <bpmndi:BPMNShape id="dDEL_di" bpmnElement="dDEL"><dc:Bounds x="2265" y="580" width="36" height="36"/>
         <bpmndi:BPMNLabel><dc:Bounds x="2252" y="620" width="63" height="30"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="dFAIL_di" bpmnElement="dFAIL"><dc:Bounds x="2265" y="704" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="2224" y="744" width="119" height="30"/></bpmndi:BPMNLabel>
+      <bpmndi:BPMNShape id="dFAIL_di" bpmnElement="dFAIL"><dc:Bounds x="2103" y="704" width="36" height="36"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2062" y="744" width="119" height="30"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="dE_OK_di" bpmnElement="dE_OK"><dc:Bounds x="2427" y="580" width="36" height="36"/>
         <bpmndi:BPMNLabel><dc:Bounds x="2410" y="620" width="70" height="30"/></bpmndi:BPMNLabel>
@@ -414,8 +414,8 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="flow_16_di" bpmnElement="flow_16">
         <di:waypoint x="2542" y="660"/>
-        <di:waypoint x="2700" y="660"/>
-        <di:waypoint x="2700" y="135"/>
+        <di:waypoint x="2575" y="660"/>
+        <di:waypoint x="2575" y="135"/>
         <di:waypoint x="2590" y="135"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="flow_17_di" bpmnElement="flow_17">
@@ -450,16 +450,14 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="SP_SEND_if_3_di" bpmnElement="SP_SEND_if_3">
         <di:waypoint x="1327" y="623"/>
-        <di:waypoint x="1327" y="664"/>
-        <di:waypoint x="1457" y="664"/>
-        <di:waypoint x="1457" y="704"/>
+        <di:waypoint x="1327" y="704"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="SP_SEND_if_4_di" bpmnElement="SP_SEND_if_4">
         <di:waypoint x="1475" y="598"/>
         <di:waypoint x="1568" y="598"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="SP_SEND_if_5_di" bpmnElement="SP_SEND_if_5">
-        <di:waypoint x="1475" y="722"/>
+        <di:waypoint x="1345" y="722"/>
         <di:waypoint x="1568" y="722"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="SP_DELIV_if_0_di" bpmnElement="SP_DELIV_if_0">
@@ -472,16 +470,14 @@
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="SP_DELIV_if_2_di" bpmnElement="SP_DELIV_if_2">
         <di:waypoint x="2121" y="623"/>
-        <di:waypoint x="2121" y="664"/>
-        <di:waypoint x="2283" y="664"/>
-        <di:waypoint x="2283" y="704"/>
+        <di:waypoint x="2121" y="704"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="SP_DELIV_if_3_di" bpmnElement="SP_DELIV_if_3">
         <di:waypoint x="2301" y="598"/>
         <di:waypoint x="2427" y="598"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="SP_DELIV_if_4_di" bpmnElement="SP_DELIV_if_4">
-        <di:waypoint x="2301" y="722"/>
+        <di:waypoint x="2139" y="722"/>
         <di:waypoint x="2427" y="722"/>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="msg_0_di" bpmnElement="msg_0">
@@ -495,9 +491,9 @@
         <bpmndi:BPMNLabel><dc:Bounds x="1411" y="762" width="120" height="14"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="msg_2_di" bpmnElement="msg_2">
-        <di:waypoint x="1457" y="920"/>
-        <di:waypoint x="1457" y="740"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="1411" y="824" width="120" height="14"/></bpmndi:BPMNLabel>
+        <di:waypoint x="1327" y="920"/>
+        <di:waypoint x="1327" y="740"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="1281" y="824" width="120" height="14"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="msg_3_di" bpmnElement="msg_3">
         <di:waypoint x="2283" y="920"/>
@@ -505,9 +501,9 @@
         <bpmndi:BPMNLabel><dc:Bounds x="2237" y="762" width="120" height="14"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="msg_4_di" bpmnElement="msg_4">
-        <di:waypoint x="2283" y="920"/>
-        <di:waypoint x="2283" y="740"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="2237" y="824" width="120" height="14"/></bpmndi:BPMNLabel>
+        <di:waypoint x="2121" y="920"/>
+        <di:waypoint x="2121" y="740"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2075" y="824" width="120" height="14"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="msg_5_di" bpmnElement="msg_5">
         <di:waypoint x="1550" y="984"/>

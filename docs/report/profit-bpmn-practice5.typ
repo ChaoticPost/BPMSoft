@@ -280,3 +280,13 @@ User Tasks выбора сотрудника; Service Tasks проверки п�
 + BPMN 2.0, спецификация Object Management Group (OMG).
 + Репозиторий проекта: #link("https://github.com/ChaoticPost/BPMSoft")[github.com/ChaoticPost/BPMSoft].
 + Редактор BPMN: #link("https://stormbpmn.com/")[StormBPMN].
+#pagebreak()
+= Приложение А. Открытие файлов BPMN в Visual Studio Code
+Файлы `ProfIT_BPMN_01.bpmn`–`ProfIT_BPMN_09.bpmn` являются документами BPMN 2.0 XML и прилагаются к отчёту в каталоге `bpmn/`. В Visual Studio Code их можно открыть двумя способами: как обычный XML-текст для просмотра и ручной правки разметки либо через графические расширения, отображающие диаграмму визуально.
+Для визуального просмотра и редактирования схем в VS Code доступны следующие расширения:
++ *BPMN.io Editor* (`bpmn-io.vs-code-bpmn-io`) — официальное расширение от bpmn.io, построенное на библиотеке bpmn-js. Просмотр и редактирование `.bpmn` в графическом редакторе, мини-карта навигации, отмена/повтор действий, создание диаграмм из пустого файла. Установка: `ext install bpmn-io.vs-code-bpmn-io`.
++ *BPMN Modeler* (`miragon-gmbh.vs-code-bpmn-modeler`) — графический редактор BPMN 2.0, DMN и Camunda Forms (Camunda 7/8) на базе bpmn-js/dmn-js/form-js. Файл остаётся текстовым источником истины, поэтому сохранение, Git и diff работают как с обычным кодом. Установка: `ext install miragon-gmbh.vs-code-bpmn-modeler`.
++ *BPMN Editor* (`redhat.vscode-extension-bpmn-editor`, Red Hat, на базе Kogito) — создание и редактирование `.bpmn`/`.bpmn2` с экспортом диаграммы в SVG и горячими клавишами. Установка: `ext install redhat.vscode-extension-bpmn-editor`.
++ *Apache KIE BPMN Editor* (`kie-group.bpmn-vscode-extension`) — продолжение редактора Kogito под эгидой Apache; аналогично поддерживает `.bpmn`/`.bpmn2` и экспорт в SVG. Установка: `ext install kie-group.bpmn-vscode-extension`.
++ *Open-BPMN* (`open-bpmn.open-bpmn-vscode-extension`) — открытая платформа моделирования BPMN 2.0 от Imixs с расширяемыми профилями для технических деталей; требует установленной Java 17+. Установка: `ext install open-bpmn.open-bpmn-vscode-extension`.
+Рекомендуемый вариант для проверки приложенных схем — *BPMN.io Editor*, так как приложенные файлы генерировались на базе bpmn-js и гарантированно импортируются в этой экосистеме. После установки расширения достаточно открыть файл `.bpmn` — VS Code автоматически переключит его в графический редактор; переключение на текстовый вид выполняется командой «Reopen Editor With…» → «Text Editor».

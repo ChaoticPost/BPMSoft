@@ -189,9 +189,9 @@
   </bpmn:process>
   <bpmndi:BPMNDiagram id="BPMNDI_ProfIT_BPMN_01">
     <bpmndi:BPMNPlane id="BPMNPlane_ProfIT_BPMN_01" bpmnElement="Collab_ProfIT_BPMN_01">
-      <bpmndi:BPMNShape id="Pool_ProfIT_BPMN_01_di" bpmnElement="Pool_ProfIT_BPMN_01" isHorizontal="true"><dc:Bounds x="60" y="60" width="4097" height="600"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Pool_ProfIT_BPMN_01_di" bpmnElement="Pool_ProfIT_BPMN_01" isHorizontal="true"><dc:Bounds x="60" y="60" width="4097" height="750"/></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="lane_emp_di" bpmnElement="lane_emp" isHorizontal="true"><dc:Bounds x="90" y="60" width="4067" height="300"/></bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="lane_sys_di" bpmnElement="lane_sys" isHorizontal="true"><dc:Bounds x="90" y="360" width="4067" height="300"/></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="lane_sys_di" bpmnElement="lane_sys" isHorizontal="true"><dc:Bounds x="90" y="360" width="4067" height="450"/></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="S1_di" bpmnElement="S1"><dc:Bounds x="172" y="117" width="36" height="36"/>
         <bpmndi:BPMNLabel><dc:Bounds x="90" y="157" width="200" height="30"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
