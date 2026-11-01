@@ -132,7 +132,7 @@
       <bpmndi:BPMNShape id="lane_sys_di" bpmnElement="lane_sys" isHorizontal="true"><dc:Bounds x="90" y="210" width="2317" height="300"/></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="PUB_di" bpmnElement="PUB" isHorizontal="true"><dc:Bounds x="60" y="620" width="2347" height="64"/></bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="S1_di" bpmnElement="S1"><dc:Bounds x="172" y="117" width="36" height="36"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="90" y="157" width="200" height="30"/></bpmndi:BPMNLabel>
+        <bpmndi:BPMNLabel><dc:Bounds x="118" y="157" width="200" height="30"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="E2_di" bpmnElement="E2"><dc:Bounds x="522" y="117" width="36" height="36"/>
         <bpmndi:BPMNLabel><dc:Bounds x="477" y="157" width="126" height="30"/></bpmndi:BPMNLabel>
@@ -280,11 +280,11 @@
         <bpmndi:BPMNLabel><dc:Bounds x="1497" y="280" width="80" height="14"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="msg_0_di" bpmnElement="msg_0">
-        <di:waypoint x="2160" y="325"/>
-        <di:waypoint x="2160" y="473"/>
-        <di:waypoint x="2115" y="473"/>
-        <di:waypoint x="2115" y="620"/>
-        <bpmndi:BPMNLabel><dc:Bounds x="2114" y="393" width="120" height="14"/></bpmndi:BPMNLabel>
+        <di:waypoint x="2140" y="325"/>
+        <di:waypoint x="2140" y="370"/>
+        <di:waypoint x="2330" y="370"/>
+        <di:waypoint x="2330" y="620"/>
+        <bpmndi:BPMNLabel><dc:Bounds x="2094" y="342" width="120" height="14"/></bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
