@@ -1,0 +1,593 @@
+@startuml
+title Доменная модель MVP
+
+left to right direction
+hide methods
+
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam BackgroundColor White
+skinparam nodesep 35
+skinparam ranksep 55
+skinparam ArrowFontSize 10
+skinparam ClassFontSize 11
+skinparam PackageFontSize 13
+
+' ============================================
+' E-7. АДМИНИСТРАТИВНЫЙ ДОСТУП
+' ============================================
+
+package "Административный доступ (E-7)" #E9F2FB {
+
+  class "Учётная запись сотрудника" as EmployeeAccount {
+    + id: UUID
+    + login: String
+    + fullName: String
+    + email: String
+    + passwordHash: String
+    + active: Boolean
+  }
+
+  class "Роль" as Role {
+    + id: UUID
+    + code: RoleCode
+    + name: String
+  }
+
+  class "Разрешение" as Permission {
+    + id: UUID
+    + code: PermissionCode
+    + name: String
+  }
+
+  class "Административный сеанс" as AdminSession {
+    + id: UUID
+    + openedAt: DateTime
+    + closedAt: DateTime [0..1]
+    + revokedAt: DateTime [0..1]
+    + status: AdminSessionStatus
+  }
+
+  enum "Код роли" as RoleCode {
+    EMPLOYEE
+    OWNER
+  }
+
+  enum "Код разрешения" as PermissionCode {
+    TOURNAMENT_MANAGE
+    TEST_MANAGE
+    CATALOG_MANAGE
+    PROMO_ISSUE_VIEW
+    PROMO_CANCEL
+    REPORT_VIEW
+    ROLE_MANAGE
+    ACCOUNT_DEACTIVATE
+  }
+
+  enum "Статус административного сеанса" as AdminSessionStatus {
+    ACTIVE
+    LOGGED_OUT
+    REVOKED
+  }
+
+  Role "1" -- "0..*" EmployeeAccount : назначена
+  Role "0..*" -- "0..*" Permission : содержит
+  EmployeeAccount "1" *-- "0..*" AdminSession : сеансы
+}
+
+note bottom of Role
+  OWNER: все разрешения.
+
+  EMPLOYEE:
+  TOURNAMENT_MANAGE,
+  TEST_MANAGE,
+  CATALOG_MANAGE,
+  PROMO_ISSUE_VIEW.
+
+  Только OWNER:
+  REPORT_VIEW, PROMO_CANCEL,
+  ROLE_MANAGE, ACCOUNT_DEACTIVATE.
+
+  Право ACCOUNT_DEACTIVATE следует из
+  US-E7-6; матрицу бэклога
+  требуется дополнить.
+end note
+
+note bottom of AdminSession
+  ACTIVE:
+  closedAt и revokedAt отсутствуют.
+
+  LOGGED_OUT:
+  closedAt обязателен.
+
+  REVOKED:
+  revokedAt обязателен.
+
+  Завершённые и отозванные сеансы
+  не предоставляют доступ.
+
+  При деактивации учётной записи
+  активные сеансы отзываются.
+end note
+
+
+' ============================================
+' E-4 / E-5. КАТАЛОГ И ПОКУПКИ
+' ============================================
+
+package "Каталог и покупка (E-4, E-5)" #EFF8E9 {
+
+  class "Группа товаров" as ProductGroup {
+    + id: UUID
+    + name: String
+  }
+
+  class "Товар" as Product {
+    + id: UUID
+    + name: String
+    + description: String [0..1]
+    + price: Decimal
+    + published: Boolean
+  }
+
+  class "Покупка" as Purchase {
+    + id: UUID
+    + purchasedAt: DateTime
+    + amountBeforeDiscount: Decimal
+    + discountAmount: Decimal
+    + finalAmount: Decimal
+  }
+
+  class "Позиция покупки" as PurchaseItem {
+    + id: UUID
+    + quantity: Integer
+    + unitPrice: Decimal
+    + lineDiscountAmount: Decimal
+  }
+
+  ProductGroup "1" -- "0..*" Product : включает
+
+  Purchase "1" *-- "1..*" PurchaseItem : позиции
+
+  Product "1" <-- "0..*" PurchaseItem : товар позиции
+}
+
+note bottom of PurchaseItem
+  [ПРОЕКТНОЕ РЕШЕНИЕ]
+
+  Смешанная покупка допускается.
+
+  Скидка применяется только
+  к позициям целевой группы.
+
+  Для остальных позиций:
+  lineDiscountAmount = 0.
+
+  Правило округления
+  согласовывается с заказчиком.
+end note
+
+
+' ============================================
+' E-1. ОФЛАЙН-ТУРНИРЫ
+' ============================================
+
+package "Офлайн-турниры (E-1)" #FFF5E8 {
+
+  class "Турнир" as Tournament {
+    + id: UUID
+    + name: String
+    + heldAt: DateTime [0..1]
+    + status: TournamentStatus
+  }
+
+  class "Игровая сессия" as GameSession {
+    + id: UUID
+    + startedAt: DateTime [0..1]
+    + finishedAt: DateTime [0..1]
+    + status: GameSessionStatus
+  }
+
+  class "Участник сессии" as SessionParticipant {
+    + id: UUID
+    + displayName: String
+    + contactEmail: String
+  }
+
+  class "Игровой раунд" as GameRound {
+    + id: UUID
+    + number: Integer
+    + status: GameRoundStatus
+  }
+
+  class "Игровой ход" as GameTurn {
+    + id: UUID
+    + playedAt: DateTime
+    + guessed: Boolean
+    + method: RepresentationMethod
+    + explainerPoints: Integer
+    + guesserPoints: Integer
+  }
+
+  class "Категория слов" as WordCategory {
+    + id: UUID
+    + name: String
+    + difficulty: Integer
+  }
+
+  class "Слово" as Word {
+    + id: UUID
+    + text: String
+    + active: Boolean
+  }
+
+  class "Правило начисления баллов" as ScoringRule {
+    + id: UUID
+    + method: RepresentationMethod
+    + pointsForExplainer: Integer
+    + pointsForGuesser: Integer
+    + activeFrom: DateTime
+  }
+
+  enum "Статус турнира" as TournamentStatus {
+    PLANNED
+    IN_PROGRESS
+    COMPLETED
+  }
+
+  enum "Статус сессии" as GameSessionStatus {
+    DRAFT
+    IN_PROGRESS
+    COMPLETED
+  }
+
+  enum "Статус раунда" as GameRoundStatus {
+    DRAFT
+    IN_PROGRESS
+    COMPLETED
+  }
+
+  enum "Способ представления" as RepresentationMethod {
+    PANTOMIME
+    DRAWING
+    VERBAL
+  }
+
+  Tournament "0..*" --> "1" Product : игра турнира
+
+  Tournament "1" *-- "0..*" GameSession : сессии
+
+  GameSession "1" *-- "0..*" SessionParticipant : участники
+
+  GameSession "1" *-- "0..*" GameRound : раунды
+
+  GameRound "1" *-- "0..*" GameTurn : ходы
+
+  GameTurn "0..*" --> "1" SessionParticipant : объясняющий
+
+  GameTurn "0..*" --> "0..1" SessionParticipant : угадавший
+
+  GameTurn "0..*" --> "1" Word : слово
+
+  GameTurn "0..*" --> "1" ScoringRule : применённое правило
+
+  WordCategory "1" -- "0..*" Word : слова
+
+  WordCategory "1" -- "0..*" ScoringRule : правила
+
+  GameRound "0..*" --> "0..1" SessionParticipant : победитель раунда
+
+  GameSession "0..1" --> "0..1" SessionParticipant : победитель сессии
+}
+
+note bottom of GameTurn
+  playedAt фиксирует время хода.
+
+  Применённое правило соответствует
+  категории слова и способу
+  представления.
+
+  Используется правило с максимальным
+  activeFrom <= playedAt.
+
+  После первого применения
+  правило не изменяется.
+
+  Новые условия начисления
+  создаются новой записью ScoringRule.
+end note
+
+' БИЗНЕС-ПРАВИЛА ТУРНИРОВ
+'
+' Черновые объекты могут существовать
+' без дочерних элементов.
+'
+' Состав участников фиксируется
+' до начала игровой сессии.
+'
+' В завершённом раунде каждый
+' участник выполняет ровно один
+' собственный ход.
+'
+' Объясняющий обязателен.
+'
+' Объясняющий и угадавший
+' принадлежат одной игровой сессии.
+'
+' guessed=true тогда и только тогда,
+' когда указан угадавший.
+'
+' Если guessed=false:
+' начисления обоим равны нулю.
+'
+' При guessed=true баллы начисляются
+' обеим ролям по применённому правилу.
+'
+' Победитель раунда определяется
+' по максимальным баллам за собственный ход.
+'
+' Победитель сессии определяется
+' по сумме результатов раундов.
+'
+' Правило учёта баллов за угадывание
+' чужого слова в общем результате
+' требует уточнения у заказчика.
+'
+' При равенстве максимальных результатов
+' финализация победителя блокируется.
+'
+' Завершённая сессия содержит
+' хотя бы один завершённый раунд
+' и имеет одного победителя.
+'
+' Турнир проводится по игре,
+' относящейся к промо-группе.
+
+
+' ============================================
+' E-2. ОНЛАЙН-ТЕСТИРОВАНИЕ
+' ============================================
+
+package "Онлайн-тестирование (E-2)" #F1EEFF {
+
+  class "Онлайн-тест" as OnlineTest {
+    + id: UUID
+    + name: String
+  }
+
+  class "Версия онлайн-теста" as TestVersion {
+    + id: UUID
+    + versionNumber: Integer
+    + status: TestVersionStatus
+    + successThreshold: Integer [0..1]
+    + publishedAt: DateTime [0..1]
+  }
+
+  class "Вопрос теста" as TestQuestion {
+    + id: UUID
+    + text: String
+  }
+
+  class "Вариант ответа" as AnswerOption {
+    + id: UUID
+    + text: String
+    + correct: Boolean
+  }
+
+  class "Попытка теста" as TestAttempt {
+    + id: UUID
+    + contactEmail: String [0..1]
+    + startedAt: DateTime
+    + finishedAt: DateTime [0..1]
+    + score: Integer [0..1]
+    + successful: Boolean [0..1]
+  }
+
+  class "Ответ в попытке" as AttemptAnswer {
+    + id: UUID
+    + answeredAt: DateTime
+    + correct: Boolean
+  }
+
+  enum "Статус версии теста" as TestVersionStatus {
+    DRAFT
+    PUBLISHED
+    ARCHIVED
+  }
+
+  OnlineTest "1" *-- "0..*" TestVersion : версии
+
+  TestVersion "1" *-- "0..*" TestQuestion : вопросы
+
+  TestQuestion "1" *-- "0..*" AnswerOption : варианты
+
+  TestVersion "1" <-- "0..*" TestAttempt : попытки
+
+  TestAttempt "1" *-- "0..*" AttemptAnswer : ответы
+
+  AttemptAnswer "0..*" --> "1" TestQuestion : вопрос
+
+  AttemptAnswer "0..*" --> "1" AnswerOption : выбранный вариант
+
+  TestVersion "0..*" --> "0..1" ProductGroup : целевая группа
+}
+
+note bottom of AttemptAnswer
+  Выбранный вариант ответа
+  принадлежит указанному вопросу.
+
+  Вопрос принадлежит версии теста,
+  которую проходит пользователь.
+
+  Для одной пары:
+  (попытка, вопрос)
+  допускается не более одного ответа.
+
+  correct сохраняется как снимок
+  результата проверки ответа.
+end note
+
+' БИЗНЕС-ПРАВИЛА ТЕСТИРОВАНИЯ
+'
+' Черновая версия может не иметь вопросов.
+'
+' Для публикации необходимо:
+' - минимум один вопрос;
+' - минимум два варианта на вопрос;
+' - определённый правильный ответ;
+' - порог успешного прохождения;
+' - дата публикации;
+' - целевая группа товаров
+'   [ПРОЕКТНОЕ РЕШЕНИЕ].
+'
+' Опубликованная версия неизменяема.
+'
+' Незавершённая попытка:
+' finishedAt, score и successful отсутствуют.
+'
+' Завершённая попытка:
+' finishedAt, score и successful заполнены.
+'
+' Завершённая попытка должна содержать
+' ответы, необходимые для расчёта результата,
+' как минимум один.
+'
+' Обязательность ответа на каждый вопрос
+' требует согласования с заказчиком.
+'
+' Для выдачи промокода после успешной
+' попытки contactEmail обязателен.
+
+
+' ============================================
+' E-3 / E-5. ПРОМОКОДЫ
+' ============================================
+
+package "Промокоды (E-3, E-5)" #FFEDEF {
+
+  class "Промокод" as PromoCode {
+    + id: UUID
+    + code: String
+    + recipientEmail: String
+    + source: PromoSource
+    + status: PromoStatus
+    + validityDays: Integer
+    + discountPercent: Decimal
+    + createdAt: DateTime
+    + deliveryDeadlineAt: DateTime
+    + sentAt: DateTime [0..1]
+    + expiresAt: DateTime [0..1]
+    + activatedAt: DateTime [0..1]
+    + cancelledAt: DateTime [0..1]
+    + annulledAt: DateTime [0..1]
+    + cancellationReason: String [0..1]
+    + annulmentReason: AnnulmentReason [0..1]
+  }
+
+  class "Попытка отправки промокода" as PromoSendAttempt {
+    + id: UUID
+    + createdAt: DateTime
+    + attemptedAt: DateTime [0..1]
+    + status: DeliveryStatus
+    + providerMessageId: String [0..1]
+    + acceptedAt: DateTime [0..1]
+    + deliveredAt: DateTime [0..1]
+    + failedAt: DateTime [0..1]
+    + errorMessage: String [0..1]
+  }
+
+  enum "Источник промокода" as PromoSource {
+    GAME
+    TEST
+  }
+
+  enum "Статус промокода" as PromoStatus {
+    CREATED
+    READY_TO_ACTIVATE
+    ACTIVATED
+    CANCELLED
+    ANNULLED
+  }
+
+  enum "Статус отправки" as DeliveryStatus {
+    CREATED
+    ACCEPTED_BY_PROVIDER
+    DELIVERED
+    FAILED
+  }
+
+  enum "Причина аннуляции" as AnnulmentReason {
+    VALIDITY_EXPIRED
+    DISPATCH_TIMEOUT
+  }
+
+  PromoCode "1" *-- "0..*" PromoSendAttempt : попытки отправки
+
+  PromoCode "0..*" --> "1" ProductGroup : действует для
+
+  GameSession "0..1" -- "0..1" PromoCode : основание GAME
+
+  TestAttempt "0..1" -- "0..1" PromoCode : основание TEST
+
+  PromoCode "0..1" -- "0..1" Purchase : применён к покупке
+}
+
+note right of PromoCode
+  Ровно одно основание выдачи (XOR).
+
+  GAME:
+  завершённая сессия с победителем.
+
+  TEST:
+  успешная завершённая попытка.
+
+  Для GAME группа промокода
+  совпадает с группой товара турнира.
+
+  Для TEST группа промокода
+  совпадает с группой версии теста.
+
+  recipientEmail - снимок адреса
+  получателя в момент выдачи.
+end note
+
+note bottom of PromoSendAttempt
+  ACCEPTED_BY_PROVIDER:
+  письмо принято провайдером,
+  доставка не подтверждена.
+
+  DELIVERED:
+  подтверждена доставка.
+
+  FAILED:
+  ошибка отправки или доставки.
+
+  Поздние события уточняют
+  историю попытки отправки,
+  но не восстанавливают
+  терминальный промокод.
+end note
+
+legend bottom
+  Доменная модель MVP, не схема физической БД.
+
+  0..* допускает черновые состояния.
+
+  Обязательное наполнение проверяется
+  при публикации или завершении.
+
+  Перечисления используются как типы атрибутов.
+
+  Проектные решения требуют согласования:
+  смешанная покупка, группа теста,
+  скидки по позициям, почтовый таймаут.
+
+  Профиль конечного пользователя - Post-MVP.
+
+  Обработка данных несовершеннолетних -
+  открытый вопрос к заказчику.
+endlegend
+@enduml
