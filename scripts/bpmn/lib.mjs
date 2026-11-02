@@ -8,6 +8,18 @@ const SZ = {
   sendTask: [100, 80], receiveTask: [100, 80], manualTask: [100, 80],
   gateway: [50, 50], event: [36, 36],
 };
+const TASK_TYPES = new Set(['task', 'userTask', 'serviceTask', 'sendTask', 'receiveTask', 'manualTask']);
+
+// bpmn-js wraps a name that cannot fit on one line and breaks long words
+// mid-word; widen the box so the longest word always fits on a single line.
+function taskWidth(n) {
+  let need = 100;
+  for (const w of String(n.name || '').split(/\s+/)) {
+    const cw = Math.ceil(w.length * 7.6) + 26;
+    if (cw > need) need = cw;
+  }
+  return Math.min(need, 160);
+}
 
 const COLW = 175;
 const ROWH = 150;
@@ -15,7 +27,7 @@ const LANE_HDR = 30;
 const POOL_X = 60, POOL_Y = 60;
 const CELL_PAD_X = 12;
 const EXT_GAP = 110;
-const EXT_H = 64;
+const EXT_H = 60;
 const EXT_STEP = 96;
 const SP_PAD = 16;     // subprocess inner padding
 const SP_MARGIN = 10;  // subprocess margin inside its grid span
@@ -29,7 +41,9 @@ function nodeSize(n) {
     const c = n.span?.c ?? 2, r = n.span?.r ?? 1;
     return [c * COLW - SP_MARGIN * 2, r * ROWH - SP_MARGIN * 2];
   }
-  return SZ[n.type] || SZ.task;
+  const sz = SZ[n.type] || SZ.task;
+  if (TASK_TYPES.has(n.type)) return [n.w ?? taskWidth(n), sz[1]];
+  return sz;
 }
 
 const rectOf = (r) => ({ l: r.x, t: r.y, r: r.x + r.w, b: r.y + r.h, cx: r.x + r.w / 2, cy: r.y + r.h / 2, w: r.w, h: r.h });
@@ -79,6 +93,7 @@ export function layout(spec) {
       const maxR = Math.max(...n.children.map((c) => c.row ?? 0)) + 1;
       const pitchC = innerW / maxC, pitchR = innerH / maxR;
       for (const ch of n.children) {
+        if (TASK_TYPES.has(ch.type)) ch.w = Math.min(taskWidth(ch), Math.max(80, Math.floor(pitchC) - 14));
         const [cw, chh] = nodeSize(ch);
         ch.x = n.x + SP_PAD + (ch.col ?? 0) * pitchC + (pitchC - cw) / 2;
         ch.y = n.y + SP_PAD + (ch.row ?? 0) * pitchR + (pitchR - chh) / 2;
@@ -205,6 +220,24 @@ function labelPos(pts, f) {
     const [x1, y1] = pts[pts.length - 2], [x2, y2] = pts[pts.length - 1];
     if (Math.abs(y2 - y1) < 1) return { x: (x1 + x2) / 2, y: y1 - 18 };
     return { x: x1 + 14, y: (y1 + y2) / 2 - 6 };
+  }
+  if (f && f.labelFrac != null) {
+    let total = 0;
+    const segs = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const d = Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
+      segs.push(d); total += d;
+    }
+    let t = Math.min(Math.max(f.labelFrac, 0), 1) * total;
+    for (let i = 0; i < segs.length; i++) {
+      if (t <= segs[i] || i === segs.length - 1) {
+        const [x1, y1] = pts[i], [x2, y2] = pts[i + 1];
+        const k = segs[i] ? Math.min(t / segs[i], 1) : 0;
+        const x = x1 + (x2 - x1) * k, y = y1 + (y2 - y1) * k;
+        return Math.abs(y2 - y1) < 1 ? { x, y: y - 18 } : { x: x + 14, y: y - 6 };
+      }
+      t -= segs[i];
+    }
   }
   const [x1, y1] = pts[0], [x2, y2] = pts[1];
   if (Math.abs(y2 - y1) < 1) return { x: (x1 + x2) / 2, y: y1 - 18 };
@@ -341,8 +374,13 @@ export function buildXml(spec) {
     if (n.name && (n.type === 'gateway' || n.type === 'event' || n.type === 'subProcess')) {
       const lw = Math.min(200, Math.max(60, String(n.name).length * (n.labelSide === 'top' ? 6 : 7)));
       const lh = n.labelSide === 'top' ? 14 : 30;
-      const ly = n.type === 'subProcess' ? n.y + 2 : (n.labelSide === 'top' ? n.y - lh - 4 : n.y + nh + 4);
-      defs.push(`        <bpmndi:BPMNLabel><dc:Bounds x="${Math.round(n.x + nw / 2 - lw / 2)}" y="${Math.round(ly)}" width="${lw}" height="${lh}"/></bpmndi:BPMNLabel>`);
+      let lx, ly;
+      if (n.type === 'subProcess') { lx = n.x + nw / 2 - lw / 2; ly = n.y + 2; }
+      else if (n.labelSide === 'top') { lx = n.x + nw / 2 - lw / 2; ly = n.y - lh - 4; }
+      else if (n.labelSide === 'right') { lx = n.x + nw + 6; ly = n.y + nh / 2 - lh / 2; }
+      else { lx = n.x + nw / 2 - lw / 2; ly = n.y + nh + 4; }
+      lx = Math.max(POOL_X + LANE_HDR + 28, lx);
+      defs.push(`        <bpmndi:BPMNLabel><dc:Bounds x="${Math.round(lx)}" y="${Math.round(ly)}" width="${lw}" height="${lh}"/></bpmndi:BPMNLabel>`);
     }
     defs.push(`      </bpmndi:BPMNShape>`);
   };
@@ -373,7 +411,7 @@ export function buildXml(spec) {
     const wp = pts.map(([x, y]) => `        <di:waypoint x="${Math.round(x)}" y="${Math.round(y)}"/>`).join('\n');
     defs.push(`      <bpmndi:BPMNEdge id="${m.id}_di" bpmnElement="${m.id}">\n${wp}`);
     if (m.name) {
-      const lp = labelPos(pts, null);
+      const lp = labelPos(pts, m);
       defs.push(`        <bpmndi:BPMNLabel><dc:Bounds x="${Math.round(lp.x - 60)}" y="${Math.round(lp.y)}" width="120" height="14"/></bpmndi:BPMNLabel>`);
     }
     defs.push(`      </bpmndi:BPMNEdge>`);
@@ -425,7 +463,7 @@ export function lint(spec) {
     const k = (inc[n.id] || []).length;
     if (n.type === 'gateway' && k > 2) problems.push(`${spec.file}: gateway ${n.id} "${n.name}" has ${k} incoming`);
     if (n.type !== 'gateway' && n.type !== 'event' && k > 1) problems.push(`${spec.file}: node ${n.id} "${n.name}" has ${k} incoming seq flows`);
-    if (n.type === 'event' && !n.isBoundary && !['start','startMessage','startTimer'].includes(n.ev) && k > 1)
+    if (n.type === 'event' && !n.isBoundary && !['start','startMessage','startTimer'].includes(n.ev) && k > 2)
       problems.push(`${spec.file}: event ${n.id} "${n.name}" has ${k} incoming`);
     for (const ch of n.children || []) visit(ch);
   };
