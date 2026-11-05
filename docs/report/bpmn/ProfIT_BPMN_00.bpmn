@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_ProfIT_BPMN_00" targetNamespace="http://bpmn.io/schema/bpmn" exporter="ProfIT BPMN build" exporterVersion="1.0">
+  <bpmn:collaboration id="Collab_ProfIT_BPMN_00">
+    <bpmn:participant id="Pool_ProfIT_BPMN_00" name="ProfIT — сквозной контур процессов (BPMN-00)" processRef="Process_ProfIT_BPMN_00" />
+    <bpmn:participant id="USR" name="Публичный пользователь" />
+    <bpmn:participant id="OWN" name="Владелец ProfIT" />
+    <bpmn:participant id="TS" name="Торговый контур" />
+    <bpmn:participant id="PROV" name="Почтовый провайдер" />
+    <bpmn:participant id="EMP" name="Сотрудник ProfIT" />
+    <bpmn:messageFlow id="msg_0" name="Участие в турнире" sourceRef="USR" targetRef="CA01" />
+    <bpmn:messageFlow id="msg_1" name="Прохождение теста" sourceRef="USR" targetRef="CA03" />
+    <bpmn:messageFlow id="msg_2" name="Письмо с промокодом" sourceRef="CA05" targetRef="PROV" />
+    <bpmn:messageFlow id="msg_3" name="Статусы доставки" sourceRef="PROV" targetRef="CA05" />
+    <bpmn:messageFlow id="msg_4" name="Проверка / покупка" sourceRef="TS" targetRef="CA06" />
+    <bpmn:messageFlow id="msg_5" name="Пакет продаж" sourceRef="TS" targetRef="CA08" />
+    <bpmn:messageFlow id="msg_6" name="Запрос отчётов" sourceRef="OWN" targetRef="CA10" />
+    <bpmn:messageFlow id="msg_7" name="Ручная отмена" sourceRef="OWN" targetRef="CA07" />
+    <bpmn:messageFlow id="msg_8" name="Запрос администрирования" sourceRef="OWN" targetRef="S_ADM" />
+    <bpmn:messageFlow id="msg_9" name="Запуск турнира" sourceRef="EMP" targetRef="S_GAME" />
+    <bpmn:messageFlow id="msg_10" name="Ведение каталога" sourceRef="EMP" targetRef="S_CAT" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_ProfIT_BPMN_00" name="ProfIT — сквозной контур процессов (BPMN-00)" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_ProfIT_BPMN_00">
+      <bpmn:lane id="lane_core" name="Основной контур MVP">
+        <bpmn:flowNodeRef>S_GAME</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>CA01</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_GAME</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>CA02</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>CA03</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>T_TEST</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>J_B</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>CA05</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>CA06</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>CA08</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>CA10</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E_FIN</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>S_TEST</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="lane_sup" name="Сопровождение и контроль">
+        <bpmn:flowNodeRef>S_SUP</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>CA07</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E_SUP</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>S_ADM</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>CA09</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>S_CAT</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>CA04</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E_CAT</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>E_ADM</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="S_GAME" name="Турнир инициирован">
+      <bpmn:outgoing>flow_0</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="med_S_GAME" />
+    </bpmn:startEvent>
+    <bpmn:callActivity id="CA01" name="Проведение турнира (BPMN-01)" calledElement="Process_ProfIT_BPMN_01">
+      <bpmn:incoming>flow_0</bpmn:incoming>
+      <bpmn:outgoing>flow_1</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:intermediateThrowEvent id="T_GAME" name="Основание GAME → BPMN-05">
+      <bpmn:incoming>flow_1</bpmn:incoming>
+      <bpmn:outgoing>flow_2</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="med_T_GAME" />
+    </bpmn:intermediateThrowEvent>
+    <bpmn:callActivity id="CA02" name="Версия теста (BPMN-02)" calledElement="Process_ProfIT_BPMN_02">
+      <bpmn:incoming>flow_3</bpmn:incoming>
+      <bpmn:outgoing>flow_4</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:callActivity id="CA03" name="Прохождение теста (BPMN-03)" calledElement="Process_ProfIT_BPMN_03">
+      <bpmn:incoming>flow_4</bpmn:incoming>
+      <bpmn:outgoing>flow_5</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:intermediateThrowEvent id="T_TEST" name="Основание TEST → BPMN-05">
+      <bpmn:incoming>flow_5</bpmn:incoming>
+      <bpmn:outgoing>flow_6</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="med_T_TEST" />
+    </bpmn:intermediateThrowEvent>
+    <bpmn:exclusiveGateway id="J_B" name="">
+      <bpmn:incoming>flow_2</bpmn:incoming>
+      <bpmn:incoming>flow_6</bpmn:incoming>
+      <bpmn:outgoing>flow_7</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:callActivity id="CA05" name="Промокод и почтовые события (BPMN-05)" calledElement="Process_ProfIT_BPMN_05">
+      <bpmn:incoming>flow_7</bpmn:incoming>
+      <bpmn:outgoing>flow_8</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:callActivity id="CA06" name="Проверка и активация (BPMN-06)" calledElement="Process_ProfIT_BPMN_06">
+      <bpmn:incoming>flow_8</bpmn:incoming>
+      <bpmn:outgoing>flow_9</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:callActivity id="CA08" name="Импорт продаж (BPMN-08)" calledElement="Process_ProfIT_BPMN_08">
+      <bpmn:incoming>flow_9</bpmn:incoming>
+      <bpmn:outgoing>flow_10</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:callActivity id="CA10" name="Отчётность R-1–R-4 (BPMN-10)" calledElement="Process_ProfIT_BPMN_10">
+      <bpmn:incoming>flow_10</bpmn:incoming>
+      <bpmn:outgoing>flow_11</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:endEvent id="E_FIN" name="Контур завершён">
+      <bpmn:incoming>flow_11</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:startEvent id="S_SUP" name="Плановая проверка сроков">
+      <bpmn:outgoing>flow_12</bpmn:outgoing>
+      <bpmn:timerEventDefinition id="ted_S_SUP" />
+    </bpmn:startEvent>
+    <bpmn:callActivity id="CA07" name="Контроль сроков и аннуляция (BPMN-07)" calledElement="Process_ProfIT_BPMN_07">
+      <bpmn:incoming>flow_12</bpmn:incoming>
+      <bpmn:outgoing>flow_13</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:endEvent id="E_SUP" name="Коды актуальны или аннулированы">
+      <bpmn:incoming>flow_13</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:startEvent id="S_ADM" name="Запрос администрирования">
+      <bpmn:outgoing>flow_14</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="med_S_ADM" />
+    </bpmn:startEvent>
+    <bpmn:callActivity id="CA09" name="Роли и сеансы (BPMN-09)" calledElement="Process_ProfIT_BPMN_09">
+      <bpmn:incoming>flow_14</bpmn:incoming>
+      <bpmn:outgoing>flow_15</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:startEvent id="S_CAT" name="Запрос на создание или изменение карточки">
+      <bpmn:outgoing>flow_16</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="med_S_CAT" />
+    </bpmn:startEvent>
+    <bpmn:callActivity id="CA04" name="Каталог товаров (BPMN-04)" calledElement="Process_ProfIT_BPMN_04">
+      <bpmn:incoming>flow_16</bpmn:incoming>
+      <bpmn:outgoing>flow_17</bpmn:outgoing>
+    </bpmn:callActivity>
+    <bpmn:endEvent id="E_CAT" name="Каталог опубликован">
+      <bpmn:incoming>flow_17</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="flow_0" sourceRef="S_GAME" targetRef="CA01" />
+    <bpmn:sequenceFlow id="flow_1" sourceRef="CA01" targetRef="T_GAME" />
+    <bpmn:sequenceFlow id="flow_2" sourceRef="T_GAME" targetRef="J_B" />
+    <bpmn:sequenceFlow id="flow_3" sourceRef="S_TEST" targetRef="CA02" />
+    <bpmn:sequenceFlow id="flow_4" sourceRef="CA02" targetRef="CA03" />
+    <bpmn:sequenceFlow id="flow_5" sourceRef="CA03" targetRef="T_TEST" />
+    <bpmn:sequenceFlow id="flow_6" sourceRef="T_TEST" targetRef="J_B" />
+    <bpmn:sequenceFlow id="flow_7" sourceRef="J_B" targetRef="CA05" />
+    <bpmn:sequenceFlow id="flow_8" sourceRef="CA05" targetRef="CA06" />
+    <bpmn:sequenceFlow id="flow_9" sourceRef="CA06" targetRef="CA08" />
+    <bpmn:sequenceFlow id="flow_10" sourceRef="CA08" targetRef="CA10" />
+    <bpmn:sequenceFlow id="flow_11" sourceRef="CA10" targetRef="E_FIN" />
+    <bpmn:sequenceFlow id="flow_12" sourceRef="S_SUP" targetRef="CA07" />
+    <bpmn:sequenceFlow id="flow_13" sourceRef="CA07" targetRef="E_SUP" />
+    <bpmn:sequenceFlow id="flow_14" sourceRef="S_ADM" targetRef="CA09" />
+    <bpmn:sequenceFlow id="flow_15" sourceRef="CA09" targetRef="E_ADM" />
+    <bpmn:sequenceFlow id="flow_16" sourceRef="S_CAT" targetRef="CA04" />
+    <bpmn:sequenceFlow id="flow_17" sourceRef="CA04" targetRef="E_CAT" />
+    <bpmn:startEvent id="S_TEST" name="Тест подготовлен к публикации">
+      <bpmn:outgoing>flow_3</bpmn:outgoing>
+      <bpmn:messageEventDefinition id="med_S_TEST" />
+    </bpmn:startEvent>
+    <bpmn:endEvent id="E_ADM" name="Доступ настроен">
+      <bpmn:incoming>flow_15</bpmn:incoming>
+    </bpmn:endEvent>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDI_ProfIT_BPMN_00">
+    <bpmndi:BPMNPlane id="BPMNPlane_ProfIT_BPMN_00" bpmnElement="Collab_ProfIT_BPMN_00">
+      <bpmndi:BPMNShape id="Pool_ProfIT_BPMN_00_di" bpmnElement="Pool_ProfIT_BPMN_00" isHorizontal="true">
+        <dc:Bounds x="60" y="60" width="1822" height="450" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="lane_sup_di" bpmnElement="lane_sup" isHorizontal="true">
+        <dc:Bounds x="90" y="360" width="1792" height="150" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="lane_core_di" bpmnElement="lane_core" isHorizontal="true">
+        <dc:Bounds x="90" y="60" width="1792" height="300" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_GAME_di" bpmnElement="S_GAME">
+        <dc:Bounds x="172" y="117" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="136" y="93" width="107" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="CA01_di" bpmnElement="CA01">
+        <dc:Bounds x="315" y="95" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="T_GAME_di" bpmnElement="T_GAME">
+        <dc:Bounds x="522" y="117" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="456" y="157" width="168" height="30" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="CA02_di" bpmnElement="CA02">
+        <dc:Bounds x="315" y="245" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="CA03_di" bpmnElement="CA03">
+        <dc:Bounds x="490" y="245" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="T_TEST_di" bpmnElement="T_TEST">
+        <dc:Bounds x="697" y="267" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="631" y="307" width="168" height="30" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="J_B_di" bpmnElement="J_B" isMarkerVisible="true">
+        <dc:Bounds x="690" y="110" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="CA05_di" bpmnElement="CA05">
+        <dc:Bounds x="840" y="95" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="CA06_di" bpmnElement="CA06">
+        <dc:Bounds x="1015" y="95" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="CA08_di" bpmnElement="CA08">
+        <dc:Bounds x="1190" y="95" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="CA10_di" bpmnElement="CA10">
+        <dc:Bounds x="1365" y="95" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_FIN_di" bpmnElement="E_FIN">
+        <dc:Bounds x="1572" y="117" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1537" y="157" width="105" height="30" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_SUP_di" bpmnElement="S_SUP">
+        <dc:Bounds x="872" y="417" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="806" y="457" width="168" height="30" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="CA07_di" bpmnElement="CA07">
+        <dc:Bounds x="1015" y="395" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_SUP_di" bpmnElement="E_SUP">
+        <dc:Bounds x="1222" y="417" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1149" y="463" width="183" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_ADM_di" bpmnElement="S_ADM">
+        <dc:Bounds x="172" y="417" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="148" y="383" width="144" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="CA09_di" bpmnElement="CA09">
+        <dc:Bounds x="315" y="395" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_CAT_di" bpmnElement="S_CAT">
+        <dc:Bounds x="1397" y="417" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1323" y="379.5" width="183" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="CA04_di" bpmnElement="CA04">
+        <dc:Bounds x="1540" y="395" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_CAT_di" bpmnElement="E_CAT">
+        <dc:Bounds x="1747" y="417" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1698" y="457" width="133" height="30" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="S_TEST_di" bpmnElement="S_TEST">
+        <dc:Bounds x="222" y="267" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="140" y="307" width="160" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="E_ADM_di" bpmnElement="E_ADM">
+        <dc:Bounds x="472" y="417" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="446" y="457" width="87" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="flow_0_di" bpmnElement="flow_0">
+        <di:waypoint x="208" y="135" />
+        <di:waypoint x="315" y="135" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_1_di" bpmnElement="flow_1">
+        <di:waypoint x="415" y="135" />
+        <di:waypoint x="522" y="135" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_2_di" bpmnElement="flow_2">
+        <di:waypoint x="558" y="135" />
+        <di:waypoint x="690" y="135" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_3_di" bpmnElement="flow_3">
+        <di:waypoint x="258" y="285" />
+        <di:waypoint x="315" y="285" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_4_di" bpmnElement="flow_4">
+        <di:waypoint x="415" y="285" />
+        <di:waypoint x="490" y="285" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_5_di" bpmnElement="flow_5">
+        <di:waypoint x="590" y="285" />
+        <di:waypoint x="697" y="285" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_6_di" bpmnElement="flow_6">
+        <di:waypoint x="715" y="267" />
+        <di:waypoint x="715" y="160" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_7_di" bpmnElement="flow_7">
+        <di:waypoint x="740" y="135" />
+        <di:waypoint x="840" y="135" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_8_di" bpmnElement="flow_8">
+        <di:waypoint x="940" y="135" />
+        <di:waypoint x="1015" y="135" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_9_di" bpmnElement="flow_9">
+        <di:waypoint x="1115" y="135" />
+        <di:waypoint x="1190" y="135" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_10_di" bpmnElement="flow_10">
+        <di:waypoint x="1290" y="135" />
+        <di:waypoint x="1365" y="135" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_11_di" bpmnElement="flow_11">
+        <di:waypoint x="1465" y="135" />
+        <di:waypoint x="1572" y="135" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_12_di" bpmnElement="flow_12">
+        <di:waypoint x="908" y="435" />
+        <di:waypoint x="1015" y="435" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_13_di" bpmnElement="flow_13">
+        <di:waypoint x="1115" y="435" />
+        <di:waypoint x="1222" y="435" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_14_di" bpmnElement="flow_14">
+        <di:waypoint x="208" y="435" />
+        <di:waypoint x="315" y="435" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_15_di" bpmnElement="flow_15">
+        <di:waypoint x="415" y="435" />
+        <di:waypoint x="472" y="435" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_16_di" bpmnElement="flow_16">
+        <di:waypoint x="1433" y="435" />
+        <di:waypoint x="1540" y="435" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="flow_17_di" bpmnElement="flow_17">
+        <di:waypoint x="1640" y="435" />
+        <di:waypoint x="1747" y="435" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="USR_di" bpmnElement="USR" isHorizontal="true">
+        <dc:Bounds x="60" y="620" width="1822" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="OWN_di" bpmnElement="OWN" isHorizontal="true">
+        <dc:Bounds x="60" y="716" width="1822" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="TS_di" bpmnElement="TS" isHorizontal="true">
+        <dc:Bounds x="60" y="812" width="1822" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="PROV_di" bpmnElement="PROV" isHorizontal="true">
+        <dc:Bounds x="60" y="908" width="1822" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EMP_di" bpmnElement="EMP" isHorizontal="true">
+        <dc:Bounds x="60" y="1004" width="1822" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="msg_0_di" bpmnElement="msg_0">
+        <di:waypoint x="300" y="620" />
+        <di:waypoint x="300" y="205" />
+        <di:waypoint x="365" y="205" />
+        <di:waypoint x="365" y="175" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="252" y="563" width="95" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_1_di" bpmnElement="msg_1">
+        <di:waypoint x="570" y="620" />
+        <di:waypoint x="570" y="325" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="519" y="383" width="101" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_2_di" bpmnElement="msg_2">
+        <di:waypoint x="860" y="175" />
+        <di:waypoint x="860" y="908" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="793" y="253" width="114" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_3_di" bpmnElement="msg_3">
+        <di:waypoint x="920" y="908" />
+        <di:waypoint x="920" y="175" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="874" y="553" width="92" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_4_di" bpmnElement="msg_4">
+        <di:waypoint x="1000" y="812" />
+        <di:waypoint x="1000" y="205" />
+        <di:waypoint x="1065" y="205" />
+        <di:waypoint x="1065" y="175" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="950" y="523" width="99" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_5_di" bpmnElement="msg_5">
+        <di:waypoint x="1200" y="812" />
+        <di:waypoint x="1200" y="175" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1165" y="553" width="71" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_6_di" bpmnElement="msg_6">
+        <di:waypoint x="1450" y="716" />
+        <di:waypoint x="1450" y="175" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1410" y="278" width="80" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_7_di" bpmnElement="msg_7">
+        <di:waypoint x="1065" y="716" />
+        <di:waypoint x="1065" y="475" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1019" y="590" width="120" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_8_di" bpmnElement="msg_8">
+        <di:waypoint x="190" y="716" />
+        <di:waypoint x="190" y="453" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="138" y="579" width="104" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_9_di" bpmnElement="msg_9">
+        <di:waypoint x="130" y="1004" />
+        <di:waypoint x="130" y="190" />
+        <di:waypoint x="190" y="190" />
+        <di:waypoint x="190" y="153" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="90" y="536" width="79" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="msg_10_di" bpmnElement="msg_10">
+        <di:waypoint x="1415" y="1004" />
+        <di:waypoint x="1415" y="453" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1369" y="930" width="92" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

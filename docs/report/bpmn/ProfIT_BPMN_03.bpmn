@@ -348,7 +348,7 @@
         <di:waypoint x="2290" y="520" />
         <di:waypoint x="2290" y="460" />
         <bpmndi:BPMNLabel>
-          <dc:Bounds x="2106" y="502" width="19" height="14" />
+          <dc:Bounds x="1950" y="456" width="19" height="14" />
         </bpmndi:BPMNLabel>
       </bpmndi:BPMNEdge>
       <bpmndi:BPMNEdge id="flow_19_di" bpmnElement="flow_19">
