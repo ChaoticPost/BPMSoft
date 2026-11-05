@@ -7,8 +7,9 @@ info:
     Асинхронные команды и доменные события ProfIT (AsyncAPI 3.0.0).
 
     ## Архитектурный маршрут (C2)
-    `ядро BPMSoft → RabbitMQ ([проектная схема]) → планировщик/воркеры →
-    CES → Unisender Go → webhook HTTP → CES → ядро BPMSoft`
+    `ядро BPMSoft → outbox-ретранслятор → RabbitMQ ([проектная схема]) →
+    планировщик/воркеры → CES → Unisender Go → webhook HTTP → CES →
+    ядро BPMSoft`
 
     ## Связанный REST
     Webhook провайдера (не брокер): OpenAPI `openapi.yaml`, операция
@@ -18,7 +19,10 @@ info:
     Минимальный набор сообщений брокера для E-3:
     - команды постановки/повтора отправки промокода;
     - отложенные проверки DISPATCH_TIMEOUT и VALIDITY_EXPIRED;
-    - доменное событие активации промокода ([проектное решение], outbox).
+    - доменное событие активации промокода ([проектное решение], outbox);
+    - канал недоставленных сообщений `promocodes.dlx` (DLX → очереди
+      `*.dlq`; потребитель — операционная процедура разбора вне
+      автоматического контракта, см. раздел DLX / DLQ ниже).
 
     ## ADR: команда на каждый промокод vs периодическая выборка
     **Принято (гибрид):**
@@ -51,9 +55,21 @@ info:
 
     ## DLX / DLQ, повторы, идемпотентность
     - Очереди команд объявляют `x-dead-letter-exchange = promocodes.dlx`
-      и routing key `*.dlq`.
+      и routing key `*.dlq` — аргументы записаны в штатном поле AMQP
+      binding `queue.arguments`. Они предназначены для ручного или
+      скриптового создания очередей (`queue.declare`, infrastructure
+      provisioning); генераторы кода и инструменты автогенерации из
+      контракта эти значения не применяют.
     - После исчерпания ограниченных повторов воркера (max 5, backoff
       1m/5m/15m/1h/6h — предложение) сообщение → DLQ.
+    - Сам обменник недоставленных сообщений описан каналом
+      `promocodes.dlx` ниже: в него попадают исходные конверты команд
+      без изменения `data` (брокер добавляет `x-death`-заголовки
+      с причиной и очередью первого недоставления). Потребитель канала —
+      операционная процедура разбора (мониторинг глубины `*.dlq`, алерт,
+      ручной/скриптовый повтор через ядро по состоянию БД); автоматический
+      воркер-потребитель DLQ сознательно **не** объявляется — защита от
+      цикла «DLQ → повтор → DLQ».
     - Потребитель идемпотентен по бизнес-ключу (`promoCodeId`+`attemptNumber`
       или `promoCodeId`+тип check). At-least-once; exactly-once end-to-end
       **не** утверждается.
@@ -107,7 +123,9 @@ channels:
           exclusive: false
           autoDelete: false
           vhost: /
-          additionalProperties:
+          # Аргументы queue.declare: для ручного/скриптового создания
+          # очередей (infrastructure provisioning), не для генерации кода.
+          arguments:
             x-message-ttl: 86400000
             x-dead-letter-exchange: promocodes.dlx
             x-dead-letter-routing-key: promocodes.dispatch.requested.v1.dlq
@@ -130,7 +148,9 @@ channels:
           exclusive: false
           autoDelete: false
           vhost: /
-          additionalProperties:
+          # Аргументы queue.declare: для ручного/скриптового создания
+          # очередей (infrastructure provisioning), не для генерации кода.
+          arguments:
             x-message-ttl: 86400000
             x-dead-letter-exchange: promocodes.dlx
             x-dead-letter-routing-key: promocodes.dispatch.retry.requested.v1.dlq
@@ -154,7 +174,9 @@ channels:
           exclusive: false
           autoDelete: false
           vhost: /
-          additionalProperties:
+          # Аргументы queue.declare: для ручного/скриптового создания
+          # очередей (infrastructure provisioning), не для генерации кода.
+          arguments:
             x-message-ttl: 3600000
             x-dead-letter-exchange: promocodes.dlx
             x-dead-letter-routing-key: promocodes.dispatch.timeout.check.v1.dlq
@@ -177,7 +199,9 @@ channels:
           exclusive: false
           autoDelete: false
           vhost: /
-          additionalProperties:
+          # Аргументы queue.declare: для ручного/скриптового создания
+          # очередей (infrastructure provisioning), не для генерации кода.
+          arguments:
             x-message-ttl: 3600000
             x-dead-letter-exchange: promocodes.dlx
             x-dead-letter-routing-key: promocodes.validity.expire.check.v1.dlq
@@ -197,6 +221,44 @@ channels:
         exchange:
           name: promocodes.events
           type: topic
+          durable: true
+          autoDelete: false
+          vhost: /
+
+  promocodes.dlx:
+    address: promocodes.dlx
+    description: |
+      Обменник недоставленных сообщений (dead-letter exchange, direct) и
+      durable-очереди `*.dlq` за ним — по одной на каждую командную очередь
+      выше. Брокер перенаправляет сюда сообщение после исчерпания повторов
+      воркера (`basic.nack`/`reject`) или истечения `x-message-ttl`,
+      с routing key `<исходный канал>.dlq`.
+      В DLQ попадает исходный конверт CloudEvent без изменения `data`;
+      брокер добавляет AMQP-заголовки `x-death` (count, reason, queue,
+      exchange, time, routing-keys) и `x-first-death-reason` /
+      `x-first-death-queue` / `x-first-death-exchange` — причина и очередь
+      первого недоставления.
+      Потребитель — операционная процедура разбора (мониторинг глубины
+      `*.dlq`, алерт, ручной или скриптовый повтор через ядро по состоянию
+      БД), а НЕ автоматический воркер: автоматическое чтение DLQ
+      контрактом не объявляется, чтобы исключить цикл «DLQ → повтор →
+      DLQ». Хранение — [предложение] 7 суток.
+    messages:
+      PromoDispatchRequested:
+        $ref: '#/components/messages/PromoDispatchRequested'
+      PromoDispatchRetryRequested:
+        $ref: '#/components/messages/PromoDispatchRetryRequested'
+      PromoDispatchTimeoutCheck:
+        $ref: '#/components/messages/PromoDispatchTimeoutCheck'
+      PromoValidityExpireCheck:
+        $ref: '#/components/messages/PromoValidityExpireCheck'
+    bindings:
+      amqp:
+        bindingVersion: '0.3.0'
+        is: routingKey
+        exchange:
+          name: promocodes.dlx
+          type: direct
           durable: true
           autoDelete: false
           vhost: /
@@ -323,6 +385,41 @@ operations:
       для одного promoCodeId активация однократна на уровне домена.
     messages:
       - $ref: '#/channels/promocodes.activated.v1/messages/PromoCodeActivated'
+
+  sendPromoDeadLetter:
+    action: send
+    channel:
+      $ref: '#/channels/promocodes.dlx'
+    summary: Брокер маршрутизирует недоставленное сообщение в DLX
+    description: |
+      Производитель — сам RabbitMQ (инфраструктурное действие, не код
+      приложения): сообщение уходит в `promocodes.dlx` после исчерпания
+      ограниченных повторов воркера (max 5, backoff 1m/5m/15m/1h/6h —
+      предложение) или истечения `x-message-ttl` исходной очереди.
+      Routing key — `<исходный канал>.dlq`; заголовки `x-death` /
+      `x-first-death-*` несут причину и очередь первого недоставления.
+    messages:
+      - $ref: '#/channels/promocodes.dlx/messages/PromoDispatchRequested'
+      - $ref: '#/channels/promocodes.dlx/messages/PromoDispatchRetryRequested'
+      - $ref: '#/channels/promocodes.dlx/messages/PromoDispatchTimeoutCheck'
+      - $ref: '#/channels/promocodes.dlx/messages/PromoValidityExpireCheck'
+
+  receivePromoDeadLetter:
+    action: receive
+    channel:
+      $ref: '#/channels/promocodes.dlx'
+    summary: Операционный разбор недоставленных сообщений
+    description: |
+      Потребитель — операционная процедура вне автоматического контракта:
+      мониторинг глубины `*.dlq`, алерт дежурному, ручной или скриптовый
+      разбор с повтором через ядро BPMSoft (новая retry-команда по
+      состоянию БД). Автоматический воркер-потребитель DLQ не объявляется —
+      защита от бесконечного цикла повторов.
+    messages:
+      - $ref: '#/channels/promocodes.dlx/messages/PromoDispatchRequested'
+      - $ref: '#/channels/promocodes.dlx/messages/PromoDispatchRetryRequested'
+      - $ref: '#/channels/promocodes.dlx/messages/PromoDispatchTimeoutCheck'
+      - $ref: '#/channels/promocodes.dlx/messages/PromoValidityExpireCheck'
 
 components:
   securitySchemes:
