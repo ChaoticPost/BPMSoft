@@ -11,7 +11,7 @@ mkdirSync(OUT_PNG, { recursive: true });
 
 const viewerJs = resolve('node_modules/bpmn-js/dist/bpmn-viewer.production.min.js');
 const files = process.argv.slice(2).length ? process.argv.slice(2)
-  : ['01','02','03','04','05','06','07','08','09'].map(n => `ProfIT_BPMN_${n}.bpmn`);
+  : ['00','01','02','03','04','05','06','07','08','09','10'].map(n => `ProfIT_BPMN_${n}.bpmn`);
 
 const browser = await puppeteer.launch({
   executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',

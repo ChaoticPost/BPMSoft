@@ -249,11 +249,13 @@ function labelPos(pts, f) {
 const TAG = {
   userTask: 'bpmn:userTask', serviceTask: 'bpmn:serviceTask', task: 'bpmn:task',
   sendTask: 'bpmn:sendTask', receiveTask: 'bpmn:receiveTask', manualTask: 'bpmn:manualTask',
+  callActivity: 'bpmn:callActivity',
 };
 
 function eventTag(n) {
   if (n.isBoundary) return 'bpmn:boundaryEvent';
-  if (n.ev === 'end' || n.ev === 'endError' || n.ev === 'endTerminate') return 'bpmn:endEvent';
+  if (n.ev === 'end' || n.ev === 'endError' || n.ev === 'endTerminate' || n.ev === 'endMessage') return 'bpmn:endEvent';
+  if (n.ev === 'throwMessage') return 'bpmn:intermediateThrowEvent';
   if (n.ev === 'catchMessage' || n.ev === 'catchTimer' || n.ev === 'catchError') return 'bpmn:intermediateCatchEvent';
   return 'bpmn:startEvent';
 }
@@ -261,6 +263,7 @@ function eventTag(n) {
 function eventDef(n) {
   switch (n.ev) {
     case 'startMessage': case 'catchMessage': case 'boundaryMessage':
+    case 'throwMessage': case 'endMessage':
       return `      <bpmn:messageEventDefinition id="med_${n.id}"/>`;
     case 'startTimer': case 'catchTimer': case 'boundaryTimer':
       return `      <bpmn:timerEventDefinition id="ted_${n.id}"/>`;
@@ -291,7 +294,8 @@ function emitNode(defs, n, incoming, outgoing, indent) {
     return;
   }
   const tag = TAG[n.type] || 'bpmn:task';
-  defs.push(`${indent}<${tag} id="${n.id}" name="${esc(n.name || '')}"${body.length ? '' : '/'}>`);
+  const called = n.called ? ` calledElement="${n.called}"` : '';
+  defs.push(`${indent}<${tag} id="${n.id}" name="${esc(n.name || '')}"${called}${body.length ? '' : '/'}>`);
   if (body.length) defs.push(...body, `${indent}</${tag}>`);
 }
 
@@ -444,7 +448,7 @@ export function stats(spec) {
     spec.flows.filter((x) => x.to === n.id).length > 1 &&
     spec.flows.filter((x) => x.from === n.id).length === 1).length;
   const isStart = (n) => ['start', 'startMessage', 'startTimer'].includes(n.ev);
-  const isEnd = (n) => ['end', 'endError', 'endTerminate'].includes(n.ev);
+  const isEnd = (n) => ['end', 'endError', 'endTerminate', 'endMessage'].includes(n.ev);
   const starts = spec.nodes.filter(isStart).length +
     spec.nodes.reduce((k, n) => k + (n.children || []).filter(isStart).length, 0);
   const ends = spec.nodes.filter(isEnd).length +

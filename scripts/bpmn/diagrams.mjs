@@ -593,29 +593,18 @@ export const diagram07 = {
 
 export const diagram08 = {
   file: 'ProfIT_BPMN_08',
-  pool: 'ProfIT — импорт продаж и отчётность R-1–R-4 (BPMN-08)',
+  pool: 'ProfIT — импорт продаж от торгового контура (BPMN-08)',
   lanes: [
-    { id: 'lane_own', name: 'Владелец ProfIT', rows: 1 },
-    { id: 'lane_sys', name: 'Платформа BPMSoft', rows: 3 },
+    { id: 'lane_sys', name: 'Платформа BPMSoft', rows: 2 },
   ],
   nodes: [
-    { id: 'S_B', type: 'event', ev: 'start', name: 'Владелец открыл Insight', lane: 'lane_own', col: 0, row: 0 },
-    { id: 'T_B2', type: 'userTask', name: 'Задать параметры отчёта (период, когорта)', lane: 'lane_own', col: 4, row: 0 },
-
     { id: 'S_A', type: 'event', ev: 'startMessage', name: 'Пакет продаж от торгового контура', lane: 'lane_sys', col: 0, row: 0 },
     { id: 'ST_A1', type: 'serviceTask', name: 'Проверить структуру пакета и товарную группу', lane: 'lane_sys', col: 1, row: 0 },
     { id: 'G_A', type: 'gateway', labelSide: 'top', name: 'Пакет корректен?', lane: 'lane_sys', col: 2, row: 0 },
     { id: 'E_A1', type: 'event', ev: 'end', name: 'Пакет отклонён', lane: 'lane_sys', col: 2, row: 1 },
     { id: 'ST_A2', type: 'serviceTask', name: 'Устранить дубли orderId (идемпотентность)', lane: 'lane_sys', col: 3, row: 0 },
     { id: 'ST_A3', type: 'serviceTask', name: 'Сохранить подтверждённые продажи', lane: 'lane_sys', col: 4, row: 0 },
-    { id: 'E_A2', type: 'event', ev: 'end', name: 'Продажи учтены', lane: 'lane_sys', col: 5, row: 0 },
-
-    { id: 'ST_B1', type: 'serviceTask', name: 'Проверить право REPORT_VIEW', lane: 'lane_sys', col: 1, row: 2 },
-    { id: 'G_B', type: 'gateway', name: 'Просмотр разрешён?', lane: 'lane_sys', col: 2, row: 2 },
-    { id: 'E_B1', type: 'event', ev: 'end', name: 'Отказано в доступе', lane: 'lane_sys', col: 3, row: 1 },
-    { id: 'ST_B2', type: 'serviceTask', name: 'Рассчитать показатели R-1–R-4 по когортам sentAt', lane: 'lane_sys', col: 5, row: 2 },
-    { id: 'ST_B3', type: 'serviceTask', name: 'Отобразить отчёты в веб-клиенте', lane: 'lane_sys', col: 6, row: 2 },
-    { id: 'E_B2', type: 'event', ev: 'end', name: 'Отчётность предоставлена', lane: 'lane_sys', col: 7, row: 2 },
+    { id: 'E_A2', type: 'event', ev: 'endMessage', name: 'Продажи учтены → BPMN-10', lane: 'lane_sys', col: 5, row: 0 },
   ],
   flows: [
     { from: 'S_A', to: 'ST_A1' },
@@ -624,17 +613,115 @@ export const diagram08 = {
     { from: 'G_A', to: 'ST_A2', name: 'Да' },
     { from: 'ST_A2', to: 'ST_A3' },
     { from: 'ST_A3', to: 'E_A2' },
-    { from: 'S_B', to: 'ST_B1', via: [[190, 153], [190, 190], [130, 190], [130, 585], [310, 585]] },
-    { from: 'ST_B1', to: 'G_B' },
-    { from: 'G_B', to: 'E_B1', name: 'Нет', exit: 'right', enter: 'bottom' },
-    { from: 'G_B', to: 'T_B2', name: 'Да', exit: 'right', enter: 'left', midX: 790 },
-    { from: 'T_B2', to: 'ST_B2', via: [[940, 135], [1100, 135], [1100, 545]] },
-    { from: 'ST_B2', to: 'ST_B3' },
-    { from: 'ST_B3', to: 'E_B2' },
   ],
   externals: [{ id: 'TS', name: 'Внешняя торговая система' }],
   messages: [
-    { from: 'TS', to: 'S_A', name: 'Пакет продаж (все продажи группы)', via: [[140, 770], [140, 320], [190, 320], [190, 303]] },
+    { from: 'TS', to: 'S_A', name: 'Пакет продаж (все продажи группы)', via: [[140, 470], [140, 190], [190, 190], [190, 153]] },
+  ],
+};
+
+export const diagram10 = {
+  file: 'ProfIT_BPMN_10',
+  pool: 'ProfIT — отчётность владельца R-1–R-4 (BPMN-10)',
+  lanes: [
+    { id: 'lane_own', name: 'Владелец ProfIT', rows: 1 },
+    { id: 'lane_sys', name: 'Платформа BPMSoft', rows: 1 },
+  ],
+  nodes: [
+    { id: 'S_B', type: 'event', ev: 'start', name: 'Владелец открыл Insight', lane: 'lane_own', col: 0, row: 0 },
+    { id: 'T_B2', type: 'userTask', name: 'Задать параметры отчёта (период, когорта)', lane: 'lane_own', col: 4, row: 0 },
+
+    { id: 'ST_B1', type: 'serviceTask', name: 'Проверить право REPORT_VIEW', lane: 'lane_sys', col: 1, row: 0 },
+    { id: 'G_B', type: 'gateway', labelSide: 'top', name: 'Просмотр разрешён?', lane: 'lane_sys', col: 2, row: 0 },
+    { id: 'E_B1', type: 'event', ev: 'end', name: 'Отказано в доступе', lane: 'lane_sys', col: 3, row: 0 },
+    { id: 'ST_B2', type: 'serviceTask', name: 'Рассчитать показатели R-1–R-4 по когортам sentAt', lane: 'lane_sys', col: 5, row: 0 },
+    { id: 'ST_B3', type: 'serviceTask', name: 'Отобразить отчёты в веб-клиенте', lane: 'lane_sys', col: 6, row: 0 },
+    { id: 'E_B2', type: 'event', ev: 'end', name: 'Отчётность предоставлена', lane: 'lane_sys', col: 7, row: 0 },
+  ],
+  flows: [
+    { from: 'S_B', to: 'ST_B1', via: [[190, 153], [190, 190], [130, 190], [130, 285], [310, 285]] },
+    { from: 'ST_B1', to: 'G_B' },
+    { from: 'G_B', to: 'E_B1', name: 'Нет', exit: 'right', enter: 'left' },
+    { from: 'G_B', to: 'T_B2', name: 'Да', via: [[540, 260], [540, 135], [840, 135]] },
+    { from: 'T_B2', to: 'ST_B2', via: [[890, 175], [890, 285], [1014, 285]] },
+    { from: 'ST_B2', to: 'ST_B3' },
+    { from: 'ST_B3', to: 'E_B2' },
+  ],
+};
+
+// Обзорная карта сквозного контура ProfIT (BPMN-00): call-активности ссылаются
+// на детальные диаграммы 01–10; message-события показывают точки стыковки.
+export const diagram00 = {
+  file: 'ProfIT_BPMN_00',
+  pool: 'ProfIT — сквозной контур процессов (BPMN-00)',
+  lanes: [
+    { id: 'lane_core', name: 'Основной контур MVP', rows: 2 },
+    { id: 'lane_sup', name: 'Сопровождение и контроль', rows: 1 },
+  ],
+  nodes: [
+    { id: 'S_GAME', type: 'event', ev: 'startMessage', name: 'Турнир инициирован', lane: 'lane_core', col: 0, row: 0 },
+    { id: 'CA01', type: 'callActivity', called: 'Process_ProfIT_BPMN_01', name: 'Проведение турнира (BPMN-01)', lane: 'lane_core', col: 1, row: 0 },
+    { id: 'T_GAME', type: 'event', ev: 'throwMessage', name: 'Основание GAME → BPMN-05', lane: 'lane_core', col: 2, row: 0 },
+    { id: 'S_TEST', type: 'event', ev: 'startMessage', name: 'Тест подготовлен к публикации', lane: 'lane_core', col: 0, row: 1 },
+    { id: 'CA02', type: 'callActivity', called: 'Process_ProfIT_BPMN_02', name: 'Версия теста (BPMN-02)', lane: 'lane_core', col: 1, row: 1 },
+    { id: 'CA03', type: 'callActivity', called: 'Process_ProfIT_BPMN_03', name: 'Прохождение теста (BPMN-03)', lane: 'lane_core', col: 2, row: 1 },
+    { id: 'T_TEST', type: 'event', ev: 'throwMessage', name: 'Основание TEST → BPMN-05', lane: 'lane_core', col: 3, row: 1 },
+    { id: 'J_B', type: 'gateway', lane: 'lane_core', col: 3, row: 0 },
+    { id: 'CA05', type: 'callActivity', called: 'Process_ProfIT_BPMN_05', name: 'Промокод и почтовые события (BPMN-05)', lane: 'lane_core', col: 4, row: 0 },
+    { id: 'CA06', type: 'callActivity', called: 'Process_ProfIT_BPMN_06', name: 'Проверка и активация (BPMN-06)', lane: 'lane_core', col: 5, row: 0 },
+    { id: 'CA08', type: 'callActivity', called: 'Process_ProfIT_BPMN_08', name: 'Импорт продаж (BPMN-08)', lane: 'lane_core', col: 6, row: 0 },
+    { id: 'CA10', type: 'callActivity', called: 'Process_ProfIT_BPMN_10', name: 'Отчётность R-1–R-4 (BPMN-10)', lane: 'lane_core', col: 7, row: 0 },
+    { id: 'E_FIN', type: 'event', ev: 'end', name: 'Контур завершён', lane: 'lane_core', col: 8, row: 0 },
+
+    { id: 'S_SUP', type: 'event', ev: 'startTimer', name: 'Плановая проверка сроков', lane: 'lane_sup', col: 4, row: 0 },
+    { id: 'CA07', type: 'callActivity', called: 'Process_ProfIT_BPMN_07', name: 'Контроль сроков и аннуляция (BPMN-07)', lane: 'lane_sup', col: 5, row: 0 },
+    { id: 'E_SUP', type: 'event', ev: 'end', name: 'Коды актуальны или аннулированы', lane: 'lane_sup', col: 6, row: 0 },
+    { id: 'S_ADM', type: 'event', ev: 'startMessage', name: 'Запрос администрирования', lane: 'lane_sup', col: 0, row: 0 },
+    { id: 'CA09', type: 'callActivity', called: 'Process_ProfIT_BPMN_09', name: 'Роли и сеансы (BPMN-09)', lane: 'lane_sup', col: 1, row: 0 },
+    { id: 'E_ADM', type: 'event', ev: 'end', name: 'Доступ настроен', lane: 'lane_sup', col: 2, row: 0 },
+    { id: 'S_CAT', type: 'event', ev: 'startMessage', name: 'Запрос на создание или изменение карточки', lane: 'lane_sup', col: 7, row: 0, labelSide: 'top' },
+    { id: 'CA04', type: 'callActivity', called: 'Process_ProfIT_BPMN_04', name: 'Каталог товаров (BPMN-04)', lane: 'lane_sup', col: 8, row: 0 },
+    { id: 'E_CAT', type: 'event', ev: 'end', name: 'Каталог опубликован', lane: 'lane_sup', col: 9, row: 0 },
+  ],
+  flows: [
+    { from: 'S_GAME', to: 'CA01' },
+    { from: 'CA01', to: 'T_GAME' },
+    { from: 'T_GAME', to: 'J_B' },
+    { from: 'S_TEST', to: 'CA02' },
+    { from: 'CA02', to: 'CA03' },
+    { from: 'CA03', to: 'T_TEST' },
+    { from: 'T_TEST', to: 'J_B', exit: 'top', enter: 'bottom' },
+    { from: 'J_B', to: 'CA05' },
+    { from: 'CA05', to: 'CA06' },
+    { from: 'CA06', to: 'CA08' },
+    { from: 'CA08', to: 'CA10' },
+    { from: 'CA10', to: 'E_FIN' },
+    { from: 'S_SUP', to: 'CA07' },
+    { from: 'CA07', to: 'E_SUP' },
+    { from: 'S_ADM', to: 'CA09' },
+    { from: 'CA09', to: 'E_ADM' },
+    { from: 'S_CAT', to: 'CA04' },
+    { from: 'CA04', to: 'E_CAT' },
+  ],
+  externals: [
+    { id: 'USR', name: 'Публичный пользователь' },
+    { id: 'OWN', name: 'Владелец ProfIT' },
+    { id: 'TS', name: 'Торговый контур' },
+    { id: 'PROV', name: 'Почтовый провайдер' },
+    { id: 'EMP', name: 'Сотрудник ProfIT' },
+  ],
+  messages: [
+    { from: 'USR', to: 'CA01', name: 'Участие в турнире', via: [[300, 620], [300, 205], [365, 205], [365, 175]] },
+    { from: 'USR', to: 'CA03', name: 'Прохождение теста', via: [[570, 620], [570, 325]] },
+    { from: 'CA05', to: 'PROV', name: 'Письмо с промокодом', via: [[860, 175], [860, 908]] },
+    { from: 'PROV', to: 'CA05', name: 'Статусы доставки', via: [[920, 908], [920, 175]] },
+    { from: 'TS', to: 'CA06', name: 'Проверка / покупка', via: [[1000, 812], [1000, 205], [1065, 205], [1065, 175]] },
+    { from: 'TS', to: 'CA08', name: 'Пакет продаж', via: [[1200, 812], [1200, 175]] },
+    { from: 'OWN', to: 'CA10', name: 'Запрос отчётов', via: [[1450, 716], [1450, 175]] },
+    { from: 'OWN', to: 'CA07', name: 'Ручная отмена', via: [[1065, 716], [1065, 475]] },
+    { from: 'OWN', to: 'S_ADM', name: 'Запрос администрирования', via: [[140, 716], [140, 465], [190, 465], [190, 453]] },
+    { from: 'EMP', to: 'S_GAME', name: 'Запуск турнира', via: [[150, 1004], [150, 135], [172, 135]] },
+    { from: 'EMP', to: 'S_CAT', name: 'Ведение каталога', via: [[1480, 1004], [1480, 465], [1415, 465], [1415, 453]] },
   ],
 };
 
@@ -724,4 +811,6 @@ export const diagram09 = {
   ],
 };
 
-export const ALL = [diagram01, diagram02, diagram03, diagram04, diagram05, diagram06, diagram07, diagram08, diagram09];
+// diagram03 и diagram05 исключены из генерации: их .bpmn ведутся вручную
+// (развёрнутая командами плоская структура), спеки устарели и не применяются.
+export const ALL = [diagram00, diagram01, diagram02, diagram04, diagram06, diagram07, diagram08, diagram09, diagram10];
