@@ -19,6 +19,7 @@ System_Boundary(profit, "Информационная система ProfIT") {
     ContainerDb(redisDB, "RedisDatabase", "Redis", "[опционально] Кэш и служебные сессии")
     Container(reporting, "Insight / конструктор отчётов", "BPMSoft", "R-1—R-4; показатели промокодов и продаж")
     Container(scheduler, "Планировщик и воркеры", "BPMSoft background workers", "[проектная схема] Аннуляция, повторная отправка, обработка событий")
+    Container(outbox, "Outbox-публикация команд", "Outbox-таблица + ретранслятор BPMSoft", "[проектное решение] Transactional outbox: команда не теряется между commit БД и брокером (ADR из asyncapi.yaml)")
     Container(rabbit, "Очередь RabbitMQ", "AMQP", "[проектная схема] Очередь для фоновых заданий")
     Container(campaign, "CES / обработка почтовых событий", "BPMSoft + Webhook", "Инициирование писем, приём асинхронных статусов")
   }
@@ -41,11 +42,14 @@ Rel(mobile, api, "Тесты и каталог", "REST / JSON / HTTPS")
 Rel(api, core, "Разрешённые данные и операции", "REST / JSON / HTTPS [проектное решение]")
 Rel(commerce, api, "Проверка промокода / подтверждение", "REST / JSON / HTTPS")
 Rel(commerce, api, "ВСЕ продажи, включая без кода", "REST / JSON / HTTPS [проектный контракт]")
-Rel(core, businessDB, "Хранит доменные объекты", "PostgreSQL protocol / TCP")
+Rel(core, businessDB, "Хранит доменные объекты и outbox-записи в одной транзакции", "PostgreSQL protocol / TCP")
 Rel(core, redisDB, "Кэш / технические сессии", "Redis protocol / TCP [опционально]")
 Rel(core, reporting, "Передаёт данные показателей", "Внутренний механизм BPMSoft")
 Rel(adminClient, reporting, "Открывает R-1–R-4 и дашборды владельцу", "BPMSoft web client / HTTPS")
-Rel(core, rabbit, "Ставит фоновые задания", "AMQP [проектный маршрут]")
+Rel(core, outbox, "Регистрирует команды в outbox-записи", "Та же транзакция, что и доменные объекты")
+Rel(scheduler, outbox, "Ставит check-команды после выборки кандидатов", "Запись outbox / SQL")
+Rel(outbox, businessDB, "Читает и помечает опубликованные записи", "SQL polling")
+Rel(outbox, rabbit, "Публикует команды с подтверждением брокера", "AMQP [проектный маршрут]")
 Rel(scheduler, rabbit, "Получает и подтверждает задания", "AMQP [проектный маршрут]")
 Rel(scheduler, core, "Выполняет переходы статусов", "Внутренняя операция BPMSoft")
 Rel(scheduler, campaign, "Инициирует отправку", "Механизм BPMSoft")
@@ -81,7 +85,8 @@ legend bottom
   Покупатель → торговый контур и доставка письма — внешние связи C1.
   События CES → ядро инициируют смену статуса промокода.
   Владелец → веб-клиент → Insight открывает R-1–R-4.
-  RabbitMQ и планировщик/воркеры — проектная схема, требует проверки.
+  RabbitMQ, outbox-ретранслятор и планировщик/воркеры — проектная схема, требует проверки.
+  Outbox-контейнер соответствует ADR transactional outbox в asyncapi.yaml.
   [проектное решение] — требует подтверждения заказчиком/вендором.
   [опционально] — не является обязательным контейнером MVP.
 endlegend
