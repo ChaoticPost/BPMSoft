@@ -12,7 +12,7 @@
 
 // Реальный снимок стенда: краткое пояснение перед рисунком
 // (соответствие доменной модели + результат проверки), затем сам снимок.
-// Номер рисунка берётся из имени файла (risNN.png → N + 1): рисунок 1 -
+// Номер рисунка берётся из имени файла (risNN.png даёт номер N + 1): рисунок 1 -
 // доменная модель, снимки стенда нумеруются со сдвигом на единицу.
 #let fig(file, title, desc, model, result) = block(breakable: false)[
   #text[#model #result]
@@ -33,7 +33,7 @@
 В отчёте описано, что настроено на стенде, и что из требований модели пока не реализовано.
 
 == Цель и задачи
-Цель - перенести доменную модель ProfIT в объекты, поля, справочники, разделы и детали BPMSoft.
+Цель - перенести доменную модель ProfIT в объекты, поля, справочники, разделы и записи BPMSoft.
 
 #set page(paper: "a3", margin: 1.2cm)
 = Доменная модель
@@ -103,11 +103,11 @@
 = Разделы и рабочее место
 В рабочее место ProfIT добавлены «Турниры», «Онлайн-тесты», «Продукты», «Промокоды» и «Покупки»; «Контакты» оставлены. У реестров настроены колонки, у карточек - основные поля; слишком узкие колонки четырёх новых реестров исправлены. Валюта и единица - штатные справочники.
 
-На сгенерированной странице турнира терялись поля - восстановлены название, дата, статус, товар и деталь игровых сессий.
+На сгенерированной странице турнира терялись поля - восстановлены название, дата, статус, товар и запись игровых сессий.
 
 #fig("ris22.png", [Турнир с игровой сессией],
-  [На снимке показана карточка раздела «Турниры»: название турнира, дата и время проведения, статус `IN_PROGRESS`, связанный товар и деталь со связанной игровой сессией.],
-  [Поля `Tournament.name`, `heldAt`, `status`, `product` и связь `Tournament` → `Game​Session`.],
+  [На снимке показана карточка раздела «Турниры»: название турнира, дата и время проведения, статус `IN_PROGRESS`, связанный товар и запись со связанной игровой сессией.],
+  [Поля `Tournament.name`, `heldAt`, `status`, `product`; у турнира есть связанные записи `Game​Session`.],
   [Карточка восстановлена после ошибки генерации.])
 
 #fig("ris37.png", [Каталог товаров с записями],
@@ -136,12 +136,12 @@
   [Нулевая скидка сохраняется; автопересчёта нет.])
 
 #pagebreak()
-= Детали и связи
-Создано 11 деталей. Добавление проверено из карточки родителя: ссылка на родителя заполняется автоматически, после сохранения строка появляется в детали. Технические имена деталей не переименовывались.
+= Записи и связи
+Создано 11 записей. Добавление проверено из карточки родителя: ссылка на родителя заполняется автоматически, после сохранения строка появляется в записи.
 
-Проверенные связи деталей:
+Проверенные связи записей:
 
-#table(columns: (1.4fr, 1.8fr, 3.2fr), table.header([Родитель], [Деталь], [Обратная ссылка]),
+#table(columns: (1.4fr, 1.8fr, 3.2fr), table.header([Родитель], [Запись], [Обратная ссылка]),
   [Турнир], [Игровые сессии], [`ChuGame​Session.ChuTournament`],
   [Сессия], [Участники], [`ChuSession​Participant.ChuGame​Session`],
   [Сессия], [Раунды], [`ChuGame​Round.ChuGame​Session`],
@@ -156,17 +156,17 @@
 )
 
 #pagebreak()
-== Карточки родителей и деталей
+== Карточки родителей и записей
 
 #fig("ris23.png", [Игровая сессия с участниками и раундами],
-  [На снимке показана карточка игровой сессии: ссылка на родительский турнир, даты начала и окончания, статус, а также две детали - участники и раунды.],
-  [Связи `Game​Session` → `Session​Participant` и `Game​Session` → `Game​Round`.],
-  [Обе детали на карточке сессии.])
+  [На снимке показана карточка игровой сессии: ссылка на родительский турнир, даты начала и окончания, статус, а также две записи - участники и раунды.],
+  [У игровой сессии есть связанные записи `Session​Participant` и `Game​Round`.],
+  [Обе записи на карточке сессии.])
 
 #fig("ris24.png", [Раунд с игровым ходом],
-  [На снимке показана карточка игрового раунда: ссылка на родительскую сессию, номер раунда, статус и деталь с игровыми ходами.],
-  [Атрибуты `Game​Round.gameSession`, `number`, `status`, `winner` и связь `Game​Round` → `Game​Turn`.],
-  [Вложенная деталь работает.])
+  [На снимке показана карточка игрового раунда: ссылка на родительскую сессию, номер раунда, статус и запись с игровыми ходами.],
+  [Атрибуты `Game​Round.gameSession`, `number`, `status`, `winner`; в раунде отображаются записи `Game​Turn`.],
+  [Вложенная запись работает.])
 
 #fig("ris25.png", [Карточка игрового хода],
   [На снимке показана карточка игрового хода: дата и время хода, результат угадывания, способ представления, объясняющий и угадывающий, слово, правило начисления и два раздельных поля очков.],
@@ -174,18 +174,18 @@
   [Очки 2 и 1 сохранены; единое поле `points` не использовалось.])
 
 #fig("ris26.png", [Онлайн-тест и версии],
-  [На снимке показана карточка онлайн-теста с деталью версий теста.],
-  [Связь `Online​Test` → `Test​Version`.],
+  [На снимке показана карточка онлайн-теста с записью версий теста.],
+  [У онлайн-теста есть связанные записи `Test​Version`.],
   [])
 
 #fig("ris27.png", [Версия теста с вопросами и попытками],
-  [На снимке показана карточка версии теста: номер версии, статус `DRAFT`, порог успешности, целевая товарная группа и две детали - вопросы и попытки.],
-  [Связи `Test​Version` → `Test​Question` и `Test​Version` → `Test​Attempt`.],
+  [На снимке показана карточка версии теста: номер версии, статус `DRAFT`, порог успешности, целевая товарная группа и две записи - вопросы и попытки.],
+  [У версии теста есть связанные записи `Test​Question` и `Test​Attempt`.],
   [Версия в `DRAFT`, не публиковалась.])
 
 #fig("ris28.png", [Вопрос с вариантами ответа],
-  [На снимке показана карточка вопроса теста: текст вопроса и деталь с двумя связанными вариантами ответа.],
-  [Связь `Test​Question` → `Answer​Option`.],
+  [На снимке показана карточка вопроса теста: текст вопроса и запись с двумя связанными вариантами ответа.],
+  [У вопроса есть связанные варианты `Answer​Option`.],
   [])
 
 #fig("ris29.png", [Правильный вариант ответа],
@@ -194,8 +194,8 @@
   [])
 
 #fig("ris30.png", [Попытка тестирования с ответом],
-  [На снимке показана карточка попытки тестирования: ссылка на версию теста, синтетический email участника, время начала, нулевой результат и деталь с ответом попытки.],
-  [Связь `Test​Attempt` → `Attempt​Answer`.],
+  [На снимке показана карточка попытки тестирования: ссылка на версию теста, синтетический email участника, время начала, нулевой результат и запись с ответом попытки.],
+  [У попытки есть связанная запись `Attempt​Answer`.],
   [Запись внесена вручную - движок тестирования не запускался.])
 
 #fig("ris31.png", [Ответ попытки],
@@ -207,13 +207,13 @@
 == Автоматическая привязка родителя
 
 #fig("ris42.png", [Автоматическая ссылка на турнир до сохранения],
-  [На снимке показано создание новой игровой сессии кнопкой добавления из детали турнира: поле турнира уже заполнено системой.],
+  [На снимке показано создание новой игровой сессии кнопкой добавления из записи турнира: поле турнира уже заполнено системой.],
   [Обязательная ссылка `Game​Session.tournament`.],
   [Заполнена автоматически до сохранения.])
 
 #fig("ris43.png", [Дочерняя запись после сохранения и обновления],
-  [На снимке показана карточка турнира после сохранения и повторной загрузки страницы: в детали отображаются ранее существовавшая и новая игровая сессия.],
-  [Связь `Tournament` → `Game​Session`.],
+  [На снимке показана карточка турнира после сохранения и повторной загрузки страницы: в записи отображаются ранее существовавшая и новая игровая сессия.],
+  [У турнира отображаются связанные записи `Game​Session`.],
   [Новая запись у правильного родителя.])
 
 #pagebreak()
@@ -330,25 +330,25 @@
 
 #text(size: 8.4pt)[
 #table(columns: (1.0fr, 1.35fr, 0.95fr, 3.4fr, 0.85fr, 0.45fr, 0.85fr), table.header([Сущность], [Фактический объект], [Реализация], [Поля и связи], [Статус], [Зап.], [Рисунки]),
-  [Tournament], [`ChuTournament`], [раздел], [`Name`; `ChuHeldAt`; `ChuStatus` → `ChuTournament​Status`; `ChuProduct` → `Product`], [`EXISTS_OK`], [2], [23, 39, 44],
-  [Game​Session], [`ChuGame​Session`], [деталь], [`Name`; `ChuTournament` → `ChuTournament`; `ChuStartedAt`; `ChuFinishedAt`; `ChuStatus` → `ChuGame​Session​Status`; `ChuWinner` → `ChuSession​Participant`], [`EXISTS_OK`], [2], [24, 43, 44],
-  [Session​Participant], [`ChuSession​Participant`], [деталь], [`Name`; `ChuGame​Session` → `ChuGame​Session`; `ChuDisplayName`; `ChuContactEmail`], [`EXISTS_OK`], [3], [24],
-  [Game​Round], [`ChuGame​Round`], [деталь], [`Name`; `ChuGame​Session` → `ChuGame​Session`; `ChuNumber`; `ChuStatus` → `ChuGame​Round​Status`; `ChuWinner` → `ChuSession​Participant`], [`EXISTS_OK`], [2], [25],
-  [Game​Turn], [`ChuGame​Turn`], [деталь], [`Name`; `ChuRound` → `ChuGame​Round`; `ChuPlayedAt`; `ChuGuessed`; `ChuMethod` → `ChuRepresentation​Method`; `ChuExplainerPoints`; `ChuGuesserPoints`; `ChuExplainer` → `ChuSession​Participant`; `ChuGuesser` → `ChuSession​Participant`; `ChuWord` → `ChuWord`; `ChuScoring​Rule` → `ChuScoring​Rule`], [`EXISTS_OK`], [2], [26],
+  [Tournament], [`ChuTournament`], [раздел], [`Name`; `ChuHeldAt`; `ChuStatus`: `ChuTournament​Status`; `ChuProduct`: `Product`], [`EXISTS_OK`], [2], [23, 39, 44],
+  [Game​Session], [`ChuGame​Session`], [запись], [`Name`; `ChuTournament`: `ChuTournament`; `ChuStartedAt`; `ChuFinishedAt`; `ChuStatus`: `ChuGame​Session​Status`; `ChuWinner`: `ChuSession​Participant`], [`EXISTS_OK`], [2], [24, 43, 44],
+  [Session​Participant], [`ChuSession​Participant`], [запись], [`Name`; `ChuGame​Session`: `ChuGame​Session`; `ChuDisplayName`; `ChuContactEmail`], [`EXISTS_OK`], [3], [24],
+  [Game​Round], [`ChuGame​Round`], [запись], [`Name`; `ChuGame​Session`: `ChuGame​Session`; `ChuNumber`; `ChuStatus`: `ChuGame​Round​Status`; `ChuWinner`: `ChuSession​Participant`], [`EXISTS_OK`], [2], [25],
+  [Game​Turn], [`ChuGame​Turn`], [запись], [`Name`; `ChuRound`: `ChuGame​Round`; `ChuPlayedAt`; `ChuGuessed`; `ChuMethod`: `ChuRepresentation​Method`; `ChuExplainerPoints`; `ChuGuesserPoints`; `ChuExplainer`: `ChuSession​Participant`; `ChuGuesser`: `ChuSession​Participant`; `ChuWord`: `ChuWord`; `ChuScoring​Rule`: `ChuScoring​Rule`], [`EXISTS_OK`], [2], [26],
   [Word​Category], [`ChuWord​Category`], [справочник], [`Name`; `ChuDifficulty`], [`EXISTS_OK`], [2], [20],
-  [Word], [`ChuWord`], [справочник], [`Name`; `ChuText`; `ChuActive`; `ChuWord​Category` → `ChuWord​Category`], [`EXISTS_OK`], [2], [21],
-  [Scoring​Rule], [`ChuScoring​Rule`], [справочник], [`Name`; `ChuWord​Category` → `ChuWord​Category`; `ChuMethod` → `ChuRepresentation​Method`; `ChuPointsForExplainer`; `ChuPointsForGuesser`; `ChuActiveFrom`], [`EXISTS_OK`], [1], [22],
+  [Word], [`ChuWord`], [справочник], [`Name`; `ChuText`; `ChuActive`; `ChuWord​Category`: `ChuWord​Category`], [`EXISTS_OK`], [2], [21],
+  [Scoring​Rule], [`ChuScoring​Rule`], [справочник], [`Name`; `ChuWord​Category`: `ChuWord​Category`; `ChuMethod`: `ChuRepresentation​Method`; `ChuPointsForExplainer`; `ChuPointsForGuesser`; `ChuActiveFrom`], [`EXISTS_OK`], [1], [22],
   [Online​Test], [`ChuOnline​Test`], [раздел], [`Name`], [`EXISTS_OK`], [2], [27, 40],
-  [Test​Version], [`ChuTest​Version`], [деталь], [`Name`; `ChuOnline​Test` → `ChuOnline​Test`; `ChuVersionNumber`; `ChuStatus` → `ChuTest​Version​Status`; `ChuSuccessThreshold`; `ChuPublishedAt`; `ChuProduct​Group` → `ChuProduct​Group`], [`EXISTS_OK`], [2], [28],
-  [Test​Question], [`ChuTest​Question`], [деталь], [`Name`; `ChuTest​Version` → `ChuTest​Version`; `ChuText`], [`EXISTS_OK`], [2], [29],
-  [Answer​Option], [`ChuAnswer​Option`], [деталь], [`Name`; `ChuQuestion` → `ChuTest​Question`; `ChuText`; `ChuCorrect`], [`EXISTS_OK`], [3], [30],
-  [Test​Attempt], [`ChuTest​Attempt`], [деталь], [`Name`; `ChuTest​Version` → `ChuTest​Version`; `ChuContactEmail`; `ChuStartedAt`; `ChuFinishedAt`; `ChuScore`; `ChuSuccessful`], [`EXISTS_OK`], [2], [31],
-  [Attempt​Answer], [`ChuAttempt​Answer`], [деталь], [`Name`; `ChuTest​Attempt` → `ChuTest​Attempt`; `ChuQuestion` → `ChuTest​Question`; `ChuSelectedAnswer` → `ChuAnswer​Option`; `ChuAnsweredAt`; `ChuCorrect`], [`EXISTS_OK`], [2], [32],
-  [PromoCode], [`ChuPromoCode`], [раздел], [`Name`; `ChuCode`; `ChuRecipientEmail`; `ChuSource` → `ChuPromo​Source`; `ChuStatus` → `ChuPromo​Status`; `ChuProduct​Group` → `ChuProduct​Group`; `ChuValidityDays`; `ChuDiscountPercent`; `ChuCreatedAt`; `ChuDeliveryDeadlineAt`; `ChuSentAt`; `ChuExpiresAt`; `ChuActivatedAt`; `ChuCancelledAt`; `ChuAnnulledAt`; `ChuCancellationReason`; `ChuAnnulmentReason` → `ChuAnnulment​Reason`; `ChuGame​Session` → `ChuGame​Session`; `ChuTest​Attempt` → `ChuTest​Attempt`], [`EXISTS_OK`], [2], [33, 34, 41],
-  [PromoSend​Attempt], [`ChuPromoSend​Attempt`], [деталь], [`Name`; `ChuPromoCode` → `ChuPromoCode`; `ChuCreatedAt`; `ChuAttemptedAt`; `ChuStatus` → `ChuDelivery​Status`; `ChuProviderMessageId`; `ChuAcceptedAt`; `ChuDeliveredAt`; `ChuFailedAt`; `ChuErrorMessage`], [`EXISTS_OK`], [3], [34, 36],
-  [Purchase], [`ChuPurchase`], [раздел], [`Name`; `ChuPurchasedAt`; `ChuAmountBeforeDiscount`; `ChuDiscountAmount`; `ChuFinalAmount`; `ChuPromoCode` → `ChuPromoCode`], [`EXISTS_OK`], [2], [35, 42],
-  [Purchase​Item], [`ChuPurchase​Item`], [деталь], [`Name`; `ChuPurchase` → `ChuPurchase`; `ChuProduct` → `Product`; `ChuQuantity`; `ChuUnitPrice`; `ChuLineDiscountAmount`], [`EXISTS_OK`], [3], [37, 45],
-  [Product], [`Product`], [раздел], [`Name`, `Description`, `Price`; `ChuPublished`; `ChuProduct​Group` → `ChuProduct​Group`], [`REUSE_​STANDARD`], [3], [19, 38],
+  [Test​Version], [`ChuTest​Version`], [запись], [`Name`; `ChuOnline​Test`: `ChuOnline​Test`; `ChuVersionNumber`; `ChuStatus`: `ChuTest​Version​Status`; `ChuSuccessThreshold`; `ChuPublishedAt`; `ChuProduct​Group`: `ChuProduct​Group`], [`EXISTS_OK`], [2], [28],
+  [Test​Question], [`ChuTest​Question`], [запись], [`Name`; `ChuTest​Version`: `ChuTest​Version`; `ChuText`], [`EXISTS_OK`], [2], [29],
+  [Answer​Option], [`ChuAnswer​Option`], [запись], [`Name`; `ChuQuestion`: `ChuTest​Question`; `ChuText`; `ChuCorrect`], [`EXISTS_OK`], [3], [30],
+  [Test​Attempt], [`ChuTest​Attempt`], [запись], [`Name`; `ChuTest​Version`: `ChuTest​Version`; `ChuContactEmail`; `ChuStartedAt`; `ChuFinishedAt`; `ChuScore`; `ChuSuccessful`], [`EXISTS_OK`], [2], [31],
+  [Attempt​Answer], [`ChuAttempt​Answer`], [запись], [`Name`; `ChuTest​Attempt`: `ChuTest​Attempt`; `ChuQuestion`: `ChuTest​Question`; `ChuSelectedAnswer`: `ChuAnswer​Option`; `ChuAnsweredAt`; `ChuCorrect`], [`EXISTS_OK`], [2], [32],
+  [PromoCode], [`ChuPromoCode`], [раздел], [`Name`; `ChuCode`; `ChuRecipientEmail`; `ChuSource`: `ChuPromo​Source`; `ChuStatus`: `ChuPromo​Status`; `ChuProduct​Group`: `ChuProduct​Group`; `ChuValidityDays`; `ChuDiscountPercent`; `ChuCreatedAt`; `ChuDeliveryDeadlineAt`; `ChuSentAt`; `ChuExpiresAt`; `ChuActivatedAt`; `ChuCancelledAt`; `ChuAnnulledAt`; `ChuCancellationReason`; `ChuAnnulmentReason`: `ChuAnnulment​Reason`; `ChuGame​Session`: `ChuGame​Session`; `ChuTest​Attempt`: `ChuTest​Attempt`], [`EXISTS_OK`], [2], [33, 34, 41],
+  [PromoSend​Attempt], [`ChuPromoSend​Attempt`], [запись], [`Name`; `ChuPromoCode`: `ChuPromoCode`; `ChuCreatedAt`; `ChuAttemptedAt`; `ChuStatus`: `ChuDelivery​Status`; `ChuProviderMessageId`; `ChuAcceptedAt`; `ChuDeliveredAt`; `ChuFailedAt`; `ChuErrorMessage`], [`EXISTS_OK`], [3], [34, 36],
+  [Purchase], [`ChuPurchase`], [раздел], [`Name`; `ChuPurchasedAt`; `ChuAmountBeforeDiscount`; `ChuDiscountAmount`; `ChuFinalAmount`; `ChuPromoCode`: `ChuPromoCode`], [`EXISTS_OK`], [2], [35, 42],
+  [Purchase​Item], [`ChuPurchase​Item`], [запись], [`Name`; `ChuPurchase`: `ChuPurchase`; `ChuProduct`: `Product`; `ChuQuantity`; `ChuUnitPrice`; `ChuLineDiscountAmount`], [`EXISTS_OK`], [3], [37, 45],
+  [Product], [`Product`], [раздел], [`Name`, `Description`, `Price`; `ChuPublished`; `ChuProduct​Group`: `ChuProduct​Group`], [`REUSE_​STANDARD`], [3], [19, 38],
   [Product​Group], [`ChuProduct​Group`], [справочник], [`Name`, `Description`; ссылки из `Product`, `Test​Version`, `PromoCode`], [`EXISTS_OK`], [2], [5-7, 19],
   [Employee​Account], [`SysAdmin​Unit` / `Vw​System​Users`], [штатный механизм], [штатные пользователи], [`REUSE_​STANDARD`], [-], [8],
   [Role], [`SysAdmin​Unit` / `SysAdminUnit​In​Role`], [штатный механизм], [штатные организационные и функциональные роли], [`REUSE_​STANDARD`], [-], [8],
@@ -364,7 +364,7 @@
 #table(columns: (3.4fr, 2.0fr, 0.9fr), table.header([Проверка], [Объём], [Результат]),
   [Поля, типы, ссылки, доступность таблиц], [19 схем, 95 новых/добавленных полей], [PASS],
   [Основные разделы: создание, редактирование, повторное открытие], [5 разделов], [PASS],
-  [Детали: добавление, автопривязка, сохранение, видимость после обновления], [11 деталей], [PASS],
+  [Записи: добавление, автопривязка, сохранение, видимость после обновления], [11 записей], [PASS],
   [Открытие карточек и отображение связанных данных], [14 карточек], [PASS],
   [Колонки и записи реестров], [5 разделов], [PASS],
   [Повторное чтение исходного набора и согласованность], [36 проверок], [PASS],
@@ -389,13 +389,13 @@
   [Источник `GAME`: сессия заполнена, попытка пуста; внешней отправки не было.])
 
 #fig("ris33.png", [Попытки отправки промокода],
-  [На снимке показана карточка промокода с деталью попыток отправки: видны несколько записей в ожидающем статусе.],
-  [Связь `PromoCode` → `PromoSend​Attempt`.],
+  [На снимке показана карточка промокода с записью попыток отправки: видны несколько записей в ожидающем статусе.],
+  [У промокода есть связанные записи `PromoSend​Attempt`.],
   [`CREATED` - запись создана, доставки не было.])
 
 #fig("ris34.png", [Покупка с двумя позициями],
-  [На снимке показана карточка покупки: сумма до скидки 2500, скидка 200, итог 2300, ссылка на промокод и деталь с двумя позициями.],
-  [Связь `Purchase` → `Purchase​Item`.],
+  [На снимке показана карточка покупки: сумма до скидки 2500, скидка 200, итог 2300, ссылка на промокод и запись с двумя позициями.],
+  [У покупки есть связанные записи `Purchase​Item`.],
   [2500 - 200 = 2300; введено вручную.])
 
 #fig("ris35.png", [Неотправленная попытка доставки],
@@ -410,7 +410,7 @@
 
 #fig("ris44.png", [Позиция покупки с нулевой скидкой],
   [На снимке показана покупка из UI-примера на сумму 500 с одной позицией «пазл» и нулевой скидкой.],
-  [Связь `Purchase` → `Purchase​Item`; `lineDiscountAmount` = 0.],
+  [У покупки есть связанная запись `Purchase​Item`; `lineDiscountAmount` = 0.],
   [500 - 0 = 500.])
 
 #pagebreak()
@@ -419,12 +419,10 @@
 
 `Report` и дашборды не создавались; доступ, пароли и сеансы - штатные механизмы платформы.
 
-Все снимки - реальный стенд; рисунки 2-9 показывают состояние до доработки.
-
 = Заключение
-На стенде настроены объекты, справочники, пять разделов и 11 деталей ProfIT; сохранение, типы и связи проверены. Все 24 сущности сопоставлены с артефактами BPMSoft. Автоматика бизнес-правил в эту работу не входила.
+На стенде настроены объекты, справочники, пять разделов и 11 записей ProfIT; сохранение, типы и связи проверены. Все 24 сущности сопоставлены с артефактами BPMSoft.
 
 = Список использованных источников
-+ Материалы проекта ProfIT: доменная модель (`Domennaya model.puml`), рабочая тетрадь переноса `docs/report/bpmsoft/`, финальный отчёт о ходе работ `ProfIT_Practice_6_Final.docx` (срез 13.11.2026 23:18).
-+ Репозиторий команды: `https://github.com/Professor-Severus-Snape/BPMSoft` - артефакты этапов №1-№5.
++ Доменная модель, отчет №2.
++ Репозиторий команды: `https://github.com/ChaoticPost/BPMSoft` - артефакты этапов №1-№5.
 + Учебный стенд `study-mirea389.cloudbpm.ru` - снимки и состояние конфигурации.
