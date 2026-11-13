@@ -1,23 +1,47 @@
-# ProfIT — интеграционные контракты
+# ProfIT — продвижение настольных игр на BPMSoft
 
 **ProfIT** — система продвижения товарной группы настольных игр и паззлов: офлайн-турниры, онлайн-тесты, выдача и жизненный цикл промокодов, публичный каталог, учёт покупок и аналитика продаж.
 
 Система записи — **BPMSoft** (объекты, процессы, роли, Insight). Заказная часть — публичные web/mobile-клиенты и **тонкий Integration API**: наружу отдаются только операции, которых нет в штатном клиенте платформы или которые нужны внешним системам (магазин, почтовый провайдер).
 
-В этом репозитории лежат контракты и пояснения к ним:
+В репозитории — интеграционные контракты, доменная и процессные модели, материалы реализации на учебном стенде BPMSoft и отчёты по практикам № 2–7.
 
-| Путь | Содержание |
-|------|------------|
-| [`openapi.yaml`](./openapi.yaml) | REST, OpenAPI 3.0.3 |
-| [`asyncapi.yaml`](./asyncapi.yaml) | Команды/события брокера, AsyncAPI 3.0.0 |
-| [`docs/ProfIT_API_design_analysis.md`](./docs/ProfIT_API_design_analysis.md) | Архитектура, аудит черновика, реестры, трассировка |
-| [`docs/ProfIT_C1_context_fixed.puml`](./docs/ProfIT_C1_context_fixed.puml) | Контекст (C1) |
-| [`docs/ProfIT_C2_draft3.puml`](./docs/ProfIT_C2_draft3.puml) | Контейнеры (C2) |
-| [`docs/report/profit-api-practice4.typ`](./docs/report/profit-api-practice4.typ) | Отчёт по практике № 4 (Typst; PDF — рядом) |
-| [`docs/report/profit-raci-practice7.typ`](./docs/report/profit-raci-practice7.typ) | Отчёт по практике № 7 — RACI и ролевая модель (Typst; PDF — рядом) |
-| [`docs/validation_log.txt`](./docs/validation_log.txt) | Последний прогон парсеров и smoke |
+[![smoke 14/14](https://img.shields.io/badge/smoke-14%2F14-brightgreen)](./docs/validation_log.txt)
+[![BPMN 11/11](https://img.shields.io/badge/BPMN-11%2F11-brightgreen)](./docs/report/bpmn/)
+[![стенд: 24 объекта, 12 справочников](https://img.shields.io/badge/%D1%81%D1%82%D0%B5%D0%BD%D0%B4%3A%2024%20%D0%BE%D0%B1%D1%8A%D0%B5%D0%BA%D1%82%D0%B0%20%C2%B7%2012%20%D1%81%D0%BF%D1%80%D0%B0%D0%B2%D0%BE%D1%87%D0%BD%D0%B8%D0%BA%D0%BE%D0%B2-blue)](./docs/report/bpmsoft/)
+[![отчёты: практики № 2–7](https://img.shields.io/badge/%D0%BE%D1%82%D1%87%D1%91%D1%82%D1%8B%3A%20%D0%BF%D1%80%D0%B0%D0%BA%D1%82%D0%B8%D0%BA%D0%B8%20%E2%84%96%202%E2%80%937-blueviolet)](./docs/report/)
 
-Статус: две проверки спецификаций пройдены, все замечания закрыты — см. раздел [«Статус ревью»](#статус-ревью).
+## Карта репозитория
+
+| Папка | Что внутри |
+|-------|------------|
+| [`docs/`](./docs/) | Архитектура: разбор решений, C1/C2, лог валидации |
+| [`docs/report/`](./docs/report/) | Отчёты практик № 2–7 (`.typ` + PDF), SVG-рендеры BPMN |
+| [`docs/report/bpmn/`](./docs/report/bpmn/) | Исходники диаграмм `ProfIT_BPMN_00–10.bpmn`, скриншоты, журнал правок |
+| [`docs/report/bpmsoft/`](./docs/report/bpmsoft/) | Рабочая тетрадь стенда: справочники → объекты → связи/UI → тесты |
+| [`docs/report/domennaya/`](./docs/report/domennaya/) | Доменная модель MVP: 24 сущности, 12 перечислений, 32 связи (PlantUML + SVG) |
+| [`docs/report/images/`](./docs/report/images/) | Скриншоты прогонов; в [`p6/`](./docs/report/images/p6/) — 44 снимка стенда |
+| [`scripts/`](./scripts/) | Проверка контрактов: `check-specs.js`, `smoke-mock.js`, `run-evidence.sh` |
+| [`scripts/bpmn/`](./scripts/bpmn/) | BPMN как код: `diagrams.mjs` → `build.mjs` → `check_files.mjs` → `render.mjs` |
+
+Ключевые файлы в корне и `docs/`:
+
+- [`openapi.yaml`](./openapi.yaml) — REST, OpenAPI 3.0.3; [`asyncapi.yaml`](./asyncapi.yaml) — команды/события брокера, AsyncAPI 3.0.0
+- [`docs/ProfIT_API_design_analysis.md`](./docs/ProfIT_API_design_analysis.md) — архитектура, аудит черновика, реестры, трассировка
+- [`docs/ProfIT_C1_context_fixed.puml`](./docs/ProfIT_C1_context_fixed.puml) / [`docs/ProfIT_C2_draft3.puml`](./docs/ProfIT_C2_draft3.puml) — контекст (C1) и контейнеры (C2)
+- [`docs/validation_log.txt`](./docs/validation_log.txt) — последний прогон парсеров и smoke
+
+Отчёты ([`docs/report/`](./docs/report/), Typst; PDF лежит рядом):
+
+- [`2-pr.typ`](./docs/report/2-pr.typ) — практика № 2: доменная модель, инварианты I-01–I-44
+- [`profit-api-practice4.typ`](./docs/report/profit-api-practice4.typ) — практика № 4: контракты и ревью
+- [`profit-bpmn-practice5.typ`](./docs/report/profit-bpmn-practice5.typ) — практика № 5: процессы BPMN-00–10
+- [`profit-objects-practice6.typ`](./docs/report/profit-objects-practice6.typ) — практика № 6: модель на стенде BPMSoft
+- [`profit-raci-practice7.typ`](./docs/report/profit-raci-practice7.typ) — практика № 7: RACI и ролевая модель
+
+**Разделы:** [Зачем два контракта](#зачем-два-контракта) · [Контуры API](#контуры-api) · [Статусы промокода](#статусы-промокода) · [Правила HTTP](#общие-правила-http) · [Проверка локально](#проверка-контрактов-локально) · [BPMN](#процессы-bpmn-20) · [Стенд BPMSoft](#модель-на-стенде-bpmsoft) · [Статус ревью](#статус-ревью)
+
+Статус: спецификации прошли две проверки, комплект BPMN — одну; все замечания закрыты — см. раздел [«Статус ревью»](#статус-ревью).
 
 ## Зачем два контракта
 
@@ -89,9 +113,30 @@ Prism слушает пути **как в YAML** (`/public/...`), без пре�
 
 Опционально: `npm run lint:openapi`.
 
+## Процессы BPMN 2.0
+
+Комплект из 11 редактируемых диаграмм — [`docs/report/bpmn/ProfIT_BPMN_00…10.bpmn`](./docs/report/bpmn/) (BPMN 2.0 XML + BPMNDI). Обзорная BPMN-00 собирает детальные процессы через Call Activity и показывает message flow к внешним участникам (пользователь, торговая система, почтовый провайдер, владелец, сотрудник); BPMN-01–10 покрывают бэклог E-1–E-7.
+
+Стыки процессов — события-сообщения: основание GAME/TEST (01/03) → выдача промокода (05) → активация по покупке (06) → пакет продаж (08) → отчёты R-1–R-4 (10). Контроль сроков — плановой проверкой BPMN-07, а не таймером на каждый код — то же решение, что ADR в `asyncapi.yaml`.
+
+Проверка комплекта:
+
+```bash
+node scripts/bpmn/check_files.mjs   # висячие ссылки, fan-out event-шлюзов, стрелки сквозь узлы
+node scripts/bpmn/render.mjs        # SVG → docs/report/, PNG-превью → /tmp (bpmn-js + Chrome)
+```
+
+Генерация `.bpmn` из спецификаций `scripts/bpmn/diagrams.mjs`: `node scripts/bpmn/build.mjs --render`. Журнал исправлений по отзыву — [`docs/report/bpmn/Readme.md`](./docs/report/bpmn/Readme.md).
+
+## Модель на стенде BPMSoft
+
+Рабочая тетрадь [`docs/report/bpmsoft/`](./docs/report/bpmsoft/) — пошаговый перенос доменной модели на учебный стенд: 12 справочников (`01-lookups.md`), 24 объекта + связка `ChuRolePermission` колонка за колонкой (`02-objects.md`), связи/детали/разделы/рабочее место (`03-links-ui.md`), тестовые данные и чек-лист проверок (`04-testing-report.md`). Инварианты, которые lookup-ссылка не гарантирует (кратность 1:1, XOR, «тот же родитель»), помечены «требуется серверная проверка». Результат со скриншотами стенда — в отчёте практики № 6.
+
 ## Статус ревью
 
 Контракты прошли две проверки. Все замечания закрыты — правки видны прямо в YAML и на C2-диаграмме; разбор каждого пункта с фрагментами контракта — в отчёте [`docs/report/profit-api-practice4.typ`](./docs/report/profit-api-practice4.typ) (PDF — рядом).
+
+Комплект BPMN прошёл проверку драфта 1: таймер на промокод и двойная аннуляция убраны, добавлена обзорная BPMN-00, связи процессов выражены событиями-сообщениями, отчётность выделена в BPMN-10. Разбор каждого замечания — в [`docs/report/bpmn/Readme.md`](./docs/report/bpmn/Readme.md) и отчёте практики № 5.
 
 ### Драфт 3 — замечания второй проверки
 
