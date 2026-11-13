@@ -14,6 +14,7 @@
 | [`docs/ProfIT_C1_context_fixed.puml`](./docs/ProfIT_C1_context_fixed.puml) | Контекст (C1) |
 | [`docs/ProfIT_C2_draft3.puml`](./docs/ProfIT_C2_draft3.puml) | Контейнеры (C2) |
 | [`docs/report/profit-api-practice4.typ`](./docs/report/profit-api-practice4.typ) | Отчёт по практике № 4 (Typst; PDF — рядом) |
+| [`docs/report/profit-raci-practice7.typ`](./docs/report/profit-raci-practice7.typ) | Отчёт по практике № 7 — RACI и ролевая модель (Typst; PDF — рядом) |
 | [`docs/validation_log.txt`](./docs/validation_log.txt) | Последний прогон парсеров и smoke |
 
 Статус: две проверки спецификаций пройдены, все замечания закрыты — см. раздел [«Статус ревью»](#статус-ревью).
