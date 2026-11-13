@@ -86,7 +86,7 @@
 = Диаграммы доменной модели
 
 #align(center)[
-  #image("hJnjSnl7UT_nAtRK3vHSahNik4aGAnE816LC-LOIbEB9P3WmS2Gn1d3euI1RxNJ692tBAHLJKgo9eaQo97UcdSc7GXGXWfH0_eMxVzJdPNTlzrv0KgurbicxtMUVzxTzphdVTFoAvtURZLpEh_iDHonwxbgfB2P4i1yS1s-3VZ24FxrmLy0ln_2m7xm9xugvwulYOZ08DuEJyAkW5-m5RwAbbtAvXhFc2zyLNdrzmnUrkkTK.svg", width: 80%)
+  #image("domennaya/Domennaya model.svg", width: 80%)
 ]
 
 #pagebreak()

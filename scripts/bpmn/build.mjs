@@ -1,12 +1,12 @@
-// Build: generate .bpmn files into docs/report/bpmn/ and render SVG (and PNG
+// Build: generate .bpmn files into docs/pr5-bpmn/bpmn/ and render SVG (and PNG
 // previews into /tmp) via bpmn-to-image.
 // Usage: node scripts/bpmn/build.mjs [--render] [--only=N]
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { ALL } from './diagrams.mjs';
 import { buildXml, lint, lintGeometry, stats } from './lib.mjs';
 
-const OUT_BPMN = new URL('../../docs/report/bpmn/', import.meta.url).pathname;
-const OUT_SVG = new URL('../../docs/report/', import.meta.url).pathname;
+const OUT_BPMN = new URL('../../docs/pr5-bpmn/bpmn/', import.meta.url).pathname;
+const OUT_SVG = new URL('../../docs/pr5-bpmn/', import.meta.url).pathname;
 const TMP = '/tmp/bpmn_preview';
 mkdirSync(OUT_BPMN, { recursive: true });
 mkdirSync(TMP, { recursive: true });

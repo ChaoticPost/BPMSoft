@@ -347,7 +347,7 @@ npm run evidence
 - Smoke завершился сообщением `Smoke OK` (6 позитивных + 8 негативных проверок)
 - В лог записаны `git HEAD` и отпечаток дерева (`git write-tree`) — ревизия проверенных файлов восстанавливается однозначно
 
-Скриншоты Prism (если приложены к сдаче) размещаются в `docs/report/images/` как `image1.png` … `image2.1.png`. Основное машинное доказательство — `docs/validation_log.txt`.
+Скриншоты Prism (если приложены к сдаче) размещаются в `docs/pr4-api/images/` как `image1.png` … `image2.1.png`. Основное машинное доказательство — `docs/validation_log.txt`.
 
 #if sys.inputs.at("with-images", default: "0") == "1" [
   #figure(image("images/image1.png", width: 95%), caption: [Запуск Prism и регистрация REST-маршрутов.])

@@ -1,7 +1,7 @@
 // Validate .bpmn files on disk: refs, event-gateway fan-out, edge-through-node geometry.
 import { readFileSync, readdirSync } from 'node:fs';
 
-const DIR = new URL('../../docs/report/bpmn/', import.meta.url).pathname;
+const DIR = new URL('../../docs/pr5-bpmn/bpmn/', import.meta.url).pathname;
 const files = readdirSync(DIR).filter((f) => f.endsWith('.bpmn')).sort();
 
 const segInt = (a, b, c, d) => {

@@ -1,11 +1,11 @@
-// Render all generated .bpmn files to SVG (docs/report/) and PNG (/tmp/bpmn_preview)
+// Render all generated .bpmn files to SVG (docs/pr5-bpmn/) and PNG (/tmp/bpmn_preview)
 // using a single puppeteer session + bpmn-js viewer.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import puppeteer from 'puppeteer-core';
 
-const BPMN_DIR = resolve('docs/report/bpmn');
-const OUT_SVG = resolve('docs/report');
+const BPMN_DIR = resolve('docs/pr5-bpmn/bpmn');
+const OUT_SVG = resolve('docs/pr5-bpmn');
 const OUT_PNG = '/tmp/bpmn_preview';
 mkdirSync(OUT_PNG, { recursive: true });
 
